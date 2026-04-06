@@ -1,4 +1,4 @@
-const CACHE_NAME = 'health-logger-v1';
+const CACHE_NAME = 'health-logger-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -26,6 +26,12 @@ self.addEventListener('fetch', e => {
   if (e.request.url.includes('/api/')) return;
 
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
