@@ -14,17 +14,32 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0D0D0D;
-  --card: #1A1A1A;
-  --card-border: #2A2A2A;
-  --text: #F0EDE8;
-  --text-dim: #8A8A8A;
   --morning: #FFB347;
   --evening: #7B68EE;
   --success: #4ADE80;
   --danger: #F87171;
   --accent: #FFB347;
   --radius: 16px;
+}
+
+body, body.dark {
+  --bg: #0D0D0D;
+  --card: #1A1A1A;
+  --card-border: #2A2A2A;
+  --text: #F0EDE8;
+  --text-dim: #8A8A8A;
+  --chart-grid: #2A2A2A;
+  --chart-text: #8A8A8A;
+}
+
+body.light {
+  --bg: #F5F3EF;
+  --card: #FFFFFF;
+  --card-border: rgba(0,0,0,0.08);
+  --text: #1A1A1A;
+  --text-dim: rgba(26,26,26,0.5);
+  --chart-grid: rgba(0,0,0,0.08);
+  --chart-text: rgba(26,26,26,0.5);
 }
 
 html, body {
@@ -35,6 +50,17 @@ html, body {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Smooth theme transitions on key elements */
+.summary-card, .bevel-section, .chart-card, .corr-card,
+.mode-btn, .chip, .select-opt, .sport-chip, .suppl-chip,
+.text-input, .typed-num, .sport-dur, .hi-metric, .hi-upload-area,
+.cal-sync-btn, .num-input button, .lang-opt, .range-btn,
+.suppl-top-btn, .suppl-custom-input, .hi-date-input,
+input[type=range] {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 /* ---- Layout ---- */
@@ -51,6 +77,13 @@ html, body {
   position: relative; min-height: 40px;
   padding: 12px 0 4px;
 }
+.theme-toggle {
+  position: absolute; left: 0; top: 10px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1rem; padding: 4px;
+  line-height: 1; transition: transform 0.3s;
+}
+.theme-toggle:active { transform: scale(0.85); }
 .lang-toggle {
   position: absolute; right: 0; top: 12px;
   display: flex; gap: 0; border: none; background: none;
@@ -621,6 +654,13 @@ body.evening .suppl-chip.selected {
 .screen-area.slide-in-left   { opacity: 0; transform: translateX(40px); }
 .screen-area.slide-in-right  { opacity: 0; transform: translateX(-40px); }
 
+/* Light mode overrides */
+body.light .hi-date-input { color-scheme: light; }
+body.light .skeleton {
+  background: linear-gradient(90deg, var(--card) 25%, var(--card-border) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+}
+
 /* Evening accent override */
 body.evening { --accent: #7B68EE; }
 body.evening .chip.selected { background: rgba(123,104,238,0.15); }
@@ -633,6 +673,7 @@ body.evening .bevel-section h2 { color: var(--accent); }
 <body>
 <div id="app">
   <div class="top-bar">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">&#127769;</button>
     <div class="progress" id="progress"></div>
     <button class="lang-toggle" id="lang-toggle" onclick="toggleLang()">
       <span class="lang-opt" id="lang-de">DE</span>
@@ -1566,15 +1607,18 @@ function buildCharts() {
     return dt.toLocaleDateString('en', { month: 'short', day: 'numeric' });
   });
 
+  const cs = getComputedStyle(document.body);
+  const gridC = cs.getPropertyValue('--chart-grid').trim();
+  const textC = cs.getPropertyValue('--chart-text').trim();
   const chartDefaults = {
     responsive: true,
     maintainAspectRatio: true,
     plugins: {
-      legend: { labels: { color: '#8A8A8A', boxWidth: 12, padding: 8, font: { size: 11 } } }
+      legend: { labels: { color: textC, boxWidth: 12, padding: 8, font: { size: 11 } } }
     },
     scales: {
-      x: { ticks: { color: '#8A8A8A', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2A2A2A' } },
-      y: { ticks: { color: '#8A8A8A', font: { size: 10 } }, grid: { color: '#2A2A2A' } }
+      x: { ticks: { color: textC, font: { size: 10 }, maxRotation: 45 }, grid: { color: gridC } },
+      y: { ticks: { color: textC, font: { size: 10 } }, grid: { color: gridC } }
     }
   };
 
@@ -1632,7 +1676,7 @@ function buildCharts() {
           ...chartDefaults,
           scales: {
             x: chartDefaults.scales.x,
-            y:  { type: 'linear', position: 'left', ticks: { color: '#F87171', font: { size: 10 } }, grid: { color: '#2A2A2A' }, title: { display: true, text: 'HR', color: '#F87171', font: { size: 10 } } },
+            y:  { type: 'linear', position: 'left', ticks: { color: '#F87171', font: { size: 10 } }, grid: { color: gridC }, title: { display: true, text: 'HR', color: '#F87171', font: { size: 10 } } },
             y1: { type: 'linear', position: 'right', ticks: { color: '#4ADE80', font: { size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'HRV', color: '#4ADE80', font: { size: 10 } } },
           }
         }
@@ -2165,12 +2209,38 @@ function updateLangToggleUI() {
   if (en) en.classList.toggle('active', currentLang === 'en');
 }
 
+// ============================================================
+//  THEME TOGGLE (Dark / Light)
+// ============================================================
+let currentTheme = (() => { try { return localStorage.getItem('health-theme') || 'dark'; } catch(e) { return 'dark'; } })();
+
+window.toggleTheme = function() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('health-theme', currentTheme); } catch(e) {}
+  applyTheme();
+  // Rebuild charts if on trends page (picks up new CSS var colors)
+  if (state.mode === 'trends' && trendsData && trendsData.length > 0) {
+    setTimeout(() => buildCharts(), 100);
+  }
+};
+
+function applyTheme() {
+  document.body.classList.toggle('light', currentTheme === 'light');
+  document.body.classList.toggle('dark', currentTheme === 'dark');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = currentTheme === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  // Update meta theme-color
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = currentTheme === 'dark' ? '#0D0D0D' : '#F5F3EF';
+}
+
 // ---- PWA Service Worker ----
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 // ---- Init ----
+applyTheme();
 updateLangToggleUI();
 if (loadDraft()) {
   render(); // Resume where you left off
