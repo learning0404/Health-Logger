@@ -444,6 +444,57 @@ body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
 .skeleton-chart { height: 200px; margin-bottom: 16px; }
 .skeleton-card { height: 80px; margin-bottom: 10px; }
 
+/* ---- Supplements ---- */
+.suppl-screen { width: 100%; }
+.suppl-top {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.suppl-top-btn {
+  padding: 6px 14px; border-radius: 100px;
+  background: var(--card); border: 1px solid var(--card-border);
+  color: var(--text-dim); font-size: 0.75rem; font-family: inherit;
+  cursor: pointer; transition: all 0.15s;
+}
+.suppl-top-btn:active { transform: scale(0.95); }
+.suppl-grid {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  justify-content: center;
+}
+.suppl-chip {
+  padding: 10px 16px; border-radius: 100px;
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text-dim); font-size: 0.85rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  user-select: none;
+}
+.suppl-chip:active { transform: scale(0.95); }
+.suppl-chip.selected {
+  border-color: var(--accent); color: #fff;
+  background: var(--accent);
+}
+body.evening .suppl-chip.selected {
+  background: var(--accent); border-color: var(--accent);
+}
+.suppl-custom-row {
+  display: flex; gap: 8px; margin-top: 12px;
+}
+.suppl-custom-input {
+  flex: 1; padding: 10px 14px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 0.9rem; font-family: inherit;
+  outline: none;
+}
+.suppl-custom-input:focus { border-color: var(--accent); }
+.suppl-custom-input::placeholder { color: var(--text-dim); }
+.suppl-add-btn {
+  padding: 10px 16px; border-radius: var(--radius);
+  background: var(--accent); color: var(--bg);
+  font-size: 0.85rem; font-weight: 600; border: none;
+  cursor: pointer; font-family: inherit;
+}
+.suppl-add-btn:active { transform: scale(0.95); }
+
 /* ---- Apple Health Import ---- */
 .health-import {
   width: 100%; display: flex; flex-direction: column;
@@ -611,6 +662,7 @@ const state = {
     screenTime: 0,
     socialMedia: 0,
     caffeineMg: 0,
+    supplements: [],
     hydrationL: 0,
     mealsKcal: 0,
     socialContact: 'Moderate',
@@ -653,6 +705,13 @@ const T = {
   sub_unproductive:   { en: 'Unproductive hours', de: 'Unproduktive Stunden' },
   sub_social_media:   { en: 'Social Media', de: 'Social Media' },
   q_caffeine:         { en: 'How much caffeine today?', de: 'Wie viel Koffein heute?' },
+  q_supplements:      { en: 'Supplements', de: 'Nahrungsergaenzung' },
+  suppl_select_all:   { en: 'Select All', de: 'Alle auswaehlen' },
+  suppl_deselect_all: { en: 'Deselect All', de: 'Alle abwaehlen' },
+  suppl_custom:       { en: '+ Custom', de: '+ Eigenes' },
+  suppl_custom_ph:    { en: 'Supplement name...', de: 'Name...' },
+  suppl_add:          { en: 'Add', de: 'Hinzu' },
+  sum_supplements:    { en: 'Supplements', de: 'Nahrungsergaenzung' },
   q_nutrition:        { en: 'Food and Hydration?', de: 'Essen und Trinken?' },
   sub_calories:       { en: 'Calories', de: 'Kalorien' },
   sub_water:          { en: 'Water', de: 'Wasser' },
@@ -737,6 +796,7 @@ function getEveningFlow() { return [
     { sub: t('sub_social_media'), type: 'number', key: 'socialMedia', unit: 'h', step: 0.5, min: 0, max: 16 },
   ]},
   { id: 'caffeine',      label: t('q_caffeine'),        type: 'typednum', key: 'caffeineMg', unit: 'mg', min: 0, max: 1000 },
+  { id: 'supplements',  label: t('q_supplements'),     type: 'supplements' },
   { id: 'nutrition',     label: t('q_nutrition'),       type: 'combined', sections: [
     { sub: t('sub_calories'), type: 'typednum', key: 'mealsKcal', unit: 'kcal', min: 0, max: 10000 },
     { sub: t('sub_water'), type: 'typednum', key: 'hydrationL', unit: 'liters', min: 0, max: 10 },
@@ -871,9 +931,10 @@ function renderNav(total, current, isSummary) {
 
 // ---- Step rendering ----
 function renderStep(step) {
-  if (step.type === 'summary') { renderSummary(); return; }
-  if (step.type === 'sport')   { renderSport(step); return; }
-  if (step.type === 'combined') { renderCombined(step); return; }
+  if (step.type === 'summary')     { renderSummary(); return; }
+  if (step.type === 'sport')       { renderSport(step); return; }
+  if (step.type === 'supplements') { renderSupplements(step); return; }
+  if (step.type === 'combined')    { renderCombined(step); return; }
 
   let inner = '';
   // Show calendar sync on first evening screen
@@ -920,6 +981,78 @@ function renderSport(step) {
     };
   });
 }
+
+const DEFAULT_SUPPLEMENTS = ['Creatine','Magnesium','Vitamin D','Omega 3','Zinc','Iron','Vitamin C','Protein Shake','Melatonin','Electrolytes','Caffeine Pills','Ashwagandha','Collagen'];
+let customSupplements = [];
+let showCustomInput = false;
+
+function renderSupplements(step) {
+  const sel = state.data.supplements;
+  const allSupps = [...DEFAULT_SUPPLEMENTS, ...customSupplements];
+  const allSelected = allSupps.length > 0 && allSupps.every(s => sel.includes(s));
+
+  let html = `<div class="q-label">${step.label}</div><div class="suppl-screen">`;
+  html += `<div class="suppl-top">
+    <button class="suppl-top-btn" onclick="toggleAllSupplements()">${allSelected ? t('suppl_deselect_all') : t('suppl_select_all')}</button>
+    <button class="suppl-top-btn" onclick="toggleCustomInput()">${t('suppl_custom')}</button>
+  </div>`;
+
+  if (showCustomInput) {
+    html += `<div class="suppl-custom-row">
+      <input type="text" class="suppl-custom-input" id="custom-suppl-input" placeholder="${t('suppl_custom_ph')}">
+      <button class="suppl-add-btn" onclick="addCustomSupplement()">${t('suppl_add')}</button>
+    </div>`;
+  }
+
+  html += `<div class="suppl-grid">`;
+  allSupps.forEach(s => {
+    html += `<div class="suppl-chip ${sel.includes(s)?'selected':''}" data-suppl="${s}">${s}</div>`;
+  });
+  html += `</div></div>`;
+  $screen.innerHTML = html;
+
+  // Bind chip toggles
+  document.querySelectorAll('.suppl-chip').forEach(el => {
+    el.onclick = () => {
+      const name = el.dataset.suppl;
+      const idx = sel.indexOf(name);
+      if (idx === -1) sel.push(name); else sel.splice(idx, 1);
+      el.classList.toggle('selected');
+    };
+  });
+}
+
+window.toggleAllSupplements = function() {
+  const allSupps = [...DEFAULT_SUPPLEMENTS, ...customSupplements];
+  const sel = state.data.supplements;
+  const allSelected = allSupps.every(s => sel.includes(s));
+  if (allSelected) {
+    state.data.supplements = [];
+  } else {
+    state.data.supplements = [...allSupps];
+  }
+  renderSupplements({ label: t('q_supplements'), type: 'supplements' });
+};
+
+window.toggleCustomInput = function() {
+  showCustomInput = !showCustomInput;
+  renderSupplements({ label: t('q_supplements'), type: 'supplements' });
+  if (showCustomInput) setTimeout(() => document.getElementById('custom-suppl-input')?.focus(), 50);
+};
+
+window.addCustomSupplement = function() {
+  const input = document.getElementById('custom-suppl-input');
+  const name = input?.value.trim();
+  if (!name) return;
+  if (!DEFAULT_SUPPLEMENTS.includes(name) && !customSupplements.includes(name)) {
+    customSupplements.push(name);
+  }
+  if (!state.data.supplements.includes(name)) {
+    state.data.supplements.push(name);
+  }
+  showCustomInput = false;
+  renderSupplements({ label: t('q_supplements'), type: 'supplements' });
+};
 
 function renderCombined(step) {
   let html = `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div><div class="combined">`;
@@ -1071,6 +1204,7 @@ function renderSummary() {
     html += summaryCard(t('sum_work'), d.workHours + ' h');
     html += summaryCard(t('sum_screen'), d.screenTime + ' h (Social Media: ' + d.socialMedia + ' h)');
     html += summaryCard(t('sum_caffeine'), d.caffeineMg + ' mg');
+    if (d.supplements.length) html += summaryCard(t('sum_supplements'), d.supplements.join(', '));
     html += summaryCard(t('sum_calories'), d.mealsKcal + ' kcal');
     html += summaryCard(t('sum_water'), d.hydrationL + ' L');
     html += summaryCard(t('sum_social'), d.socialContact);
@@ -1152,6 +1286,9 @@ window.saveEntry = async function() {
     properties['Screen Time']     = { number: d.screenTime };
     properties['Social Media Hrs']= { number: d.socialMedia };
     properties['Caffeine']        = { number: d.caffeineMg };
+    if (d.supplements.length) {
+      properties['Supplements'] = { multi_select: d.supplements.map(n => ({ name: n })) };
+    }
     properties['Calories']        = { number: d.mealsKcal };
     properties['Hydration L']     = { number: d.hydrationL };
     properties['Social Contact']  = { select: { name: d.socialContact } };
@@ -1203,8 +1340,8 @@ function resetData() {
   Object.assign(state.data, {
     sleepQuality: 5, energyLevel: 5, stressLevel: 5, intention: '',
     sportTypes: [], sportDurations: {}, studyHours: 0, workHours: 0,
-    screenTime: 0, socialMedia: 0, caffeineMg: 0, mealsKcal: 0,
-    hydrationL: 0, socialContact: 'Moderate', reflection: '',
+    screenTime: 0, socialMedia: 0, caffeineMg: 0, supplements: [],
+    mealsKcal: 0, hydrationL: 0, socialContact: 'Moderate', reflection: '',
   });
 }
 
