@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0D0D0D">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.svg">
+<title>Health Logger</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0D0D0D;
+  --card: #1A1A1A;
+  --card-border: #2A2A2A;
+  --text: #F0EDE8;
+  --text-dim: #8A8A8A;
+  --morning: #FFB347;
+  --evening: #7B68EE;
+  --success: #4ADE80;
+  --danger: #F87171;
+  --accent: #FFB347;
+  --radius: 16px;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ---- Layout ---- */
+#app {
+  display: flex; flex-direction: column;
+  height: 100%; width: 100%;
+  max-width: 480px; margin: 0 auto;
+  padding: 0 20px env(safe-area-inset-bottom, 0);
+}
+
+/* ---- Progress dots ---- */
+.progress {
+  display: flex; justify-content: center; gap: 8px;
+  padding: 16px 0 8px;
+  min-height: 40px;
+}
+.progress .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--card-border);
+  transition: background 0.3s, transform 0.3s;
+}
+.progress .dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+.progress .dot.done {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* ---- Screen container ---- */
+.screen-area {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  overflow-y: auto; padding: 12px 0;
+}
+
+/* ---- Question label ---- */
+.q-label {
+  font-size: 1.5rem; font-weight: 600;
+  text-align: center; line-height: 1.3;
+  margin-bottom: 32px;
+}
+
+/* ---- Slider ---- */
+.slider-wrap {
+  width: 100%; text-align: center;
+}
+.slider-value {
+  font-size: 4rem; font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 16px;
+  transition: color 0.2s;
+}
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px;
+  background: var(--card-border); border-radius: 3px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  border: 3px solid var(--bg);
+}
+
+/* ---- Number input ---- */
+.num-input {
+  display: flex; align-items: center; gap: 20px;
+}
+.num-input button {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 1.8rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.num-input button:active { background: var(--card-border); }
+.num-val {
+  font-size: 3.5rem; font-weight: 700;
+  min-width: 80px; text-align: center;
+  color: var(--accent);
+}
+.num-unit {
+  font-size: 0.9rem; color: var(--text-dim);
+  text-align: center; margin-top: 8px;
+}
+
+/* ---- Multi-select chips ---- */
+.chips {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  justify-content: center;
+}
+.chip {
+  padding: 12px 20px; border-radius: 100px;
+  background: var(--card); border: 2px solid var(--card-border);
+  font-size: 0.95rem; color: var(--text); cursor: pointer;
+  transition: all 0.15s;
+}
+.chip.selected {
+  border-color: var(--accent); background: rgba(255,179,71,0.15);
+  color: var(--accent);
+}
+.chip:active { transform: scale(0.95); }
+
+/* ---- Select buttons ---- */
+.select-options {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%;
+}
+.select-opt {
+  padding: 16px 20px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  font-size: 1rem; color: var(--text); cursor: pointer;
+  text-align: center; transition: all 0.15s;
+}
+.select-opt.selected {
+  border-color: var(--accent); background: rgba(255,179,71,0.15);
+  color: var(--accent);
+}
+.select-opt:active { transform: scale(0.98); }
+
+/* ---- Text input ---- */
+.text-input {
+  width: 100%; padding: 16px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 1rem; font-family: inherit;
+  resize: none; outline: none; min-height: 120px;
+  transition: border-color 0.2s;
+}
+.text-input:focus { border-color: var(--accent); }
+
+/* ---- Voice input ---- */
+.voice-wrap { width: 100%; }
+.mic-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 12px; padding: 14px;
+  border-radius: var(--radius); border: 2px solid var(--card-border);
+  background: var(--card); color: var(--text-dim);
+  font-size: 0.95rem; font-family: inherit; cursor: pointer;
+  transition: all 0.2s;
+}
+.mic-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.mic-btn.recording {
+  border-color: var(--danger); color: var(--danger);
+  background: rgba(248,113,113,0.1);
+  animation: mic-pulse 1.5s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.3); }
+  50% { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
+}
+.voice-status {
+  text-align: center; font-size: 0.8rem; color: var(--text-dim);
+  margin-top: 8px; min-height: 1.2em;
+}
+
+/* ---- Typed number input ---- */
+.typed-num-wrap { text-align: center; }
+.typed-num {
+  width: 120px; padding: 12px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--accent); font-size: 2.5rem; font-weight: 700;
+  font-family: inherit; text-align: center; outline: none;
+  -moz-appearance: textfield;
+}
+.typed-num::-webkit-outer-spin-button,
+.typed-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.typed-num:focus { border-color: var(--accent); }
+.typed-num-unit { font-size: 0.9rem; color: var(--text-dim); margin-top: 8px; }
+
+/* ---- Sport picker ---- */
+.sport-list { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.sport-row {
+  display: flex; align-items: center; gap: 12px;
+}
+.sport-chip {
+  flex: 1; padding: 14px 16px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 0.95rem; cursor: pointer;
+  text-align: center; transition: all 0.15s;
+}
+.sport-chip.selected {
+  border-color: var(--accent); background: rgba(255,179,71,0.15);
+  color: var(--accent);
+}
+body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
+.sport-chip:active { transform: scale(0.97); }
+.sport-dur {
+  width: 72px; padding: 10px 6px; border-radius: 12px;
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--accent); font-size: 1.1rem; font-weight: 700;
+  font-family: inherit; text-align: center; outline: none;
+  -moz-appearance: textfield;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+.sport-dur::-webkit-outer-spin-button,
+.sport-dur::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sport-dur:focus { border-color: var(--accent); }
+.sport-dur.hidden { opacity: 0; pointer-events: none; }
+.sport-dur-label {
+  font-size: 0.75rem; color: var(--text-dim); width: 30px;
+  transition: opacity 0.2s;
+}
+.sport-dur-label.hidden { opacity: 0; }
+.text-input::placeholder { color: var(--text-dim); }
+
+/* ---- Combined inputs (two fields on one screen) ---- */
+.combined { width: 100%; }
+.combined .sub-label {
+  font-size: 0.85rem; color: var(--text-dim);
+  margin-bottom: 8px; text-align: center;
+}
+.combined .sub-section {
+  margin-bottom: 24px;
+}
+
+/* ---- Navigation ---- */
+.nav {
+  display: flex; gap: 12px;
+  padding: 16px 0 24px;
+}
+.nav button {
+  flex: 1; padding: 16px; border-radius: var(--radius);
+  font-size: 1rem; font-weight: 600; cursor: pointer;
+  border: none; transition: all 0.15s;
+}
+.nav button:active { transform: scale(0.97); }
+.btn-back {
+  background: var(--card); color: var(--text);
+  border: 2px solid var(--card-border) !important;
+}
+.btn-next {
+  background: var(--accent); color: var(--bg);
+}
+.btn-save {
+  background: var(--success); color: var(--bg);
+}
+
+/* ---- Mode selection ---- */
+.mode-screen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px; flex: 1;
+}
+.mode-screen h1 {
+  font-size: 1.8rem; font-weight: 700; margin-bottom: 8px;
+}
+.mode-screen p {
+  color: var(--text-dim); margin-bottom: 24px;
+  font-size: 1rem;
+}
+.mode-btns {
+  display: flex; gap: 12px; width: 100%;
+}
+.mode-btn {
+  flex: 1; padding: 24px 12px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 1.05rem; font-weight: 600;
+  cursor: pointer; text-align: center; transition: all 0.15s;
+}
+.mode-btn:active { transform: scale(0.98); }
+.mode-btn .icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+.mode-btn .sub { font-size: 0.8rem; color: var(--text-dim); font-weight: 400; margin-top: 4px; }
+
+/* ---- Summary ---- */
+.summary {
+  width: 100%; overflow-y: auto; flex: 1;
+}
+.summary-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 12px;
+  border: 1px solid var(--card-border);
+}
+.summary-card h3 {
+  font-size: 0.8rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.summary-card .val {
+  font-size: 1.2rem; font-weight: 600;
+}
+.bevel-section {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; margin-bottom: 12px;
+  border: 2px solid var(--accent);
+}
+.bevel-section h2 {
+  font-size: 0.85rem; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.bevel-tags {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.bevel-tag {
+  padding: 8px 14px; border-radius: 100px;
+  background: rgba(255,179,71,0.15);
+  color: var(--accent); font-size: 0.85rem; font-weight: 500;
+}
+.no-tags { color: var(--text-dim); font-style: italic; }
+
+/* ---- Transitions ---- */
+.screen-area { transition: opacity 0.2s; }
+.screen-area.fading { opacity: 0; }
+
+/* Evening accent override */
+body.evening { --accent: #7B68EE; }
+body.evening .chip.selected { background: rgba(123,104,238,0.15); }
+body.evening .select-opt.selected { background: rgba(123,104,238,0.15); }
+body.evening .bevel-section { border-color: var(--accent); }
+body.evening .bevel-tag { background: rgba(123,104,238,0.15); color: var(--accent); }
+body.evening .bevel-section h2 { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="progress" id="progress"></div>
+  <div class="screen-area" id="screen"></div>
+  <div class="nav" id="nav"></div>
+</div>
+
+<script>
+// ============================================================
+//  DATA MODEL
+// ============================================================
+const state = {
+  mode: null, // 'morning' | 'evening'
+  step: 0,
+  data: {
+    sleepQuality: 5,
+    energyLevel: 5,
+    stressLevel: 5,
+    intention: '',
+    sportTypes: [],
+    sportDurations: {},
+    studyHours: 0,
+    workHours: 0,
+    screenTime: 0,
+    socialMedia: 0,
+    caffeineMg: 0,
+    hydrationL: 0,
+    mealsKcal: 0,
+    socialContact: 'Moderate',
+    reflection: '',
+  }
+};
+
+// ============================================================
+//  FLOW DEFINITIONS
+// ============================================================
+const morningFlow = [
+  { id: 'sleepQuality',  label: 'Good Morning.\nHow did you sleep?',        type: 'slider', min: 1, max: 10, key: 'sleepQuality' },
+  { id: 'energyLevel',   label: 'How is your energy level right now?',    type: 'slider', min: 1, max: 10, key: 'energyLevel' },
+  { id: 'stressLevel',   label: 'Stress Level?',                          type: 'slider', min: 1, max: 10, key: 'stressLevel' },
+  { id: 'intention',     label: 'What do you want to accomplish today?',   type: 'text',   key: 'intention', placeholder: 'Your intention...' },
+  { id: 'summary',       type: 'summary' },
+];
+
+const eveningFlow = [
+  { id: 'energyLevel',   label: 'How was your day overall?',               type: 'slider', min: 1, max: 10, key: 'energyLevel' },
+  { id: 'sport',         label: 'Any sport today?',                       type: 'sport', options: ['Volleyball','Gym','Padel','Run','Walk','Gymnastics','Other'] },
+  { id: 'studyWork',     label: 'Study and Work',                          type: 'combined', sections: [
+    { sub: 'Study Hours', type: 'number', key: 'studyHours', unit: 'h', step: 0.5, min: 0, max: 16 },
+    { sub: 'Work Hours', type: 'number', key: 'workHours', unit: 'h', step: 0.5, min: 0, max: 16 },
+  ]},
+  { id: 'screenSocial',  label: 'Screen Time',                            type: 'combined', sections: [
+    { sub: 'Unproductive hours', type: 'number', key: 'screenTime', unit: 'h', step: 0.5, min: 0, max: 16 },
+    { sub: 'Social Media', type: 'number', key: 'socialMedia', unit: 'h', step: 0.5, min: 0, max: 16 },
+  ]},
+  { id: 'caffeine',      label: 'How much caffeine today?',                type: 'typednum', key: 'caffeineMg', unit: 'mg', min: 0, max: 1000 },
+  { id: 'nutrition',     label: 'Food and Hydration?',                     type: 'combined', sections: [
+    { sub: 'Calories', type: 'typednum', key: 'mealsKcal', unit: 'kcal', min: 0, max: 10000 },
+    { sub: 'Water', type: 'typednum', key: 'hydrationL', unit: 'liters', min: 0, max: 10 },
+  ]},
+  { id: 'social',        label: 'Social contact today?',                   type: 'select', key: 'socialContact', options: ['None','Light','Moderate','Rich'] },
+  { id: 'reflection',    label: 'Free Reflection\nHow was your day?',     type: 'text', key: 'reflection', placeholder: 'Your thoughts...' },
+  { id: 'summary',       type: 'summary' },
+];
+
+function getFlow() {
+  return state.mode === 'morning' ? morningFlow : eveningFlow;
+}
+
+// ============================================================
+//  BEVEL TAG GENERATION
+// ============================================================
+function generateBevelTags(d) {
+  const tags = [];
+  if (d.sleepQuality <= 4)  tags.push('Poor Sleep');
+  if (d.sleepQuality >= 8)  tags.push('Great Sleep');
+  if (d.caffeineMg >= 300)      tags.push('High Caffeine');
+  else if (d.caffeineMg >= 50) tags.push('Caffeine');
+  const totalSportMin = Object.values(d.sportDurations).reduce((a,b) => a+b, 0);
+  if (totalSportMin > 0)  tags.push('Workout');
+  if (totalSportMin >= 60) tags.push('Heavy Training');
+  if (d.sportTypes.includes('Volleyball') || d.sportTypes.includes('Padel'))
+    tags.push('Team Sport');
+  if (d.screenTime >= 4)    tags.push('High Screen Time');
+  if (d.socialMedia >= 2)   tags.push('Social Media');
+  if (d.stressLevel >= 7)   tags.push('High Stress');
+  if (d.stressLevel <= 3)   tags.push('Low Stress');
+  if (d.mealsKcal > 0 && d.mealsKcal < 1500) tags.push('Low Calories');
+  if (d.hydrationL < 1.5) tags.push('Dehydrated');
+  if (d.socialContact === 'Rich') tags.push('Socializing');
+  if (d.socialContact === 'None') tags.push('Isolation');
+  if (d.studyHours + d.workHours >= 6) tags.push('Heavy Mental Load');
+  return tags;
+}
+
+// ============================================================
+//  RENDER ENGINE
+// ============================================================
+const $screen = document.getElementById('screen');
+const $progress = document.getElementById('progress');
+const $nav = document.getElementById('nav');
+
+function render() {
+  if (!state.mode) { renderModeSelect(); return; }
+  const flow = getFlow();
+  const step = flow[state.step];
+  renderProgress(flow.length, state.step);
+  renderStep(step);
+  renderNav(flow.length, state.step, step.type === 'summary');
+}
+
+// ---- Mode select ----
+function renderModeSelect() {
+  $progress.innerHTML = '';
+  $nav.innerHTML = '';
+  const hour = new Date().getHours();
+  let suggestion = '';
+  if (hour < 12) suggestion = 'morning';
+  else if (hour >= 17) suggestion = 'evening';
+
+  $screen.innerHTML = `
+    <div class="mode-screen">
+      <h1>Health Logger</h1>
+      <p>${getGreeting()}</p>
+      <div class="mode-btns">
+        <button class="mode-btn" onclick="selectMode('morning')" ${suggestion==='morning'?'style="border-color:var(--morning)"':''}>
+          <span class="icon">&#9728;&#65039;</span>
+          Morning Check-in
+          <div class="sub">Sleep, Energy, Intention</div>
+        </button>
+        <button class="mode-btn" onclick="selectMode('evening')" ${suggestion==='evening'?'style="border-color:#7B68EE"':''}>
+          <span class="icon">&#9789;</span>
+          Evening Review
+          <div class="sub">Sport, Nutrition, Reflection</div>
+        </button>
+      </div>
+    </div>`;
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good Morning!';
+  if (h < 17) return 'Good Afternoon!';
+  return 'Good Evening!';
+}
+
+function selectMode(mode) {
+  state.mode = mode;
+  state.step = 0;
+  document.body.classList.toggle('evening', mode === 'evening');
+  render();
+}
+
+// ---- Progress dots ----
+function renderProgress(total, current) {
+  $progress.innerHTML = Array.from({length: total}, (_, i) =>
+    `<div class="dot ${i === current ? 'active' : i < current ? 'done' : ''}"></div>`
+  ).join('');
+}
+
+// ---- Nav buttons ----
+function renderNav(total, current, isSummary) {
+  const isFirst = current === 0;
+  const isLast = current === total - 1;
+  let html = '';
+  html += `<button class="btn-back" onclick="goBack()">${isFirst ? 'Back' : 'Back'}</button>`;
+  if (isSummary) {
+    html += `<button class="btn-save" onclick="saveEntry()">Save</button>`;
+  } else {
+    html += `<button class="btn-next" onclick="goNext()">Next</button>`;
+  }
+  $nav.innerHTML = html;
+}
+
+// ---- Step rendering ----
+function renderStep(step) {
+  if (step.type === 'summary') { renderSummary(); return; }
+  if (step.type === 'sport')   { renderSport(step); return; }
+  if (step.type === 'combined') { renderCombined(step); return; }
+
+  let inner = `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div>`;
+  inner += renderInput(step);
+  $screen.innerHTML = inner;
+  bindInputEvents(step);
+}
+
+function renderSport(step) {
+  const sel = state.data.sportTypes;
+  const durs = state.data.sportDurations;
+  let html = `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div><div class="sport-list">`;
+  step.options.forEach(o => {
+    const active = sel.includes(o);
+    const dur = durs[o] || '';
+    html += `<div class="sport-row">
+      <div class="sport-chip ${active?'selected':''}" data-sport="${o}">${o}</div>
+      <input type="number" class="sport-dur ${active?'':'hidden'}" data-sport-dur="${o}" value="${dur}" min="0" max="600" inputmode="numeric" placeholder="0">
+      <span class="sport-dur-label ${active?'':'hidden'}">min</span>
+    </div>`;
+  });
+  html += '</div>';
+  $screen.innerHTML = html;
+
+  // Bind chip toggles
+  document.querySelectorAll('.sport-chip').forEach(el => {
+    el.onclick = () => {
+      const name = el.dataset.sport;
+      const idx = sel.indexOf(name);
+      if (idx === -1) { sel.push(name); durs[name] = durs[name] || 0; }
+      else { sel.splice(idx, 1); delete durs[name]; }
+      renderSport(step); // re-render to show/hide duration inputs
+    };
+  });
+  // Bind duration inputs
+  document.querySelectorAll('.sport-dur').forEach(el => {
+    el.oninput = e => {
+      const v = parseInt(e.target.value) || 0;
+      durs[e.target.dataset.sportDur] = Math.max(0, Math.min(600, v));
+    };
+  });
+}
+
+function renderCombined(step) {
+  let html = `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div><div class="combined">`;
+  step.sections.forEach(s => {
+    html += `<div class="sub-section"><div class="sub-label">${s.sub}</div>`;
+    html += renderInput(s);
+    html += `</div>`;
+  });
+  html += '</div>';
+  $screen.innerHTML = html;
+  step.sections.forEach(s => bindInputEvents(s));
+}
+
+function renderInput(s) {
+  const val = state.data[s.key];
+  switch (s.type) {
+    case 'slider':
+      return `<div class="slider-wrap">
+        <div class="slider-value" id="sv-${s.key}">${val}</div>
+        <input type="range" min="${s.min}" max="${s.max}" value="${val}" data-key="${s.key}">
+      </div>`;
+    case 'number':
+      return `<div>
+        <div class="num-input">
+          <button onclick="adjustNum('${s.key}',-${s.step})">-</button>
+          <div class="num-val" id="nv-${s.key}">${val}</div>
+          <button onclick="adjustNum('${s.key}',${s.step})">+</button>
+        </div>
+        <div class="num-unit">${s.unit || ''}</div>
+      </div>`;
+    case 'chips':
+      return `<div class="chips">${
+        s.options.map(o => `<div class="chip ${val.includes(o)?'selected':''}" data-key="${s.key}" data-val="${o}">${o}</div>`).join('')
+      }</div>`;
+    case 'select':
+      return `<div class="select-options">${
+        s.options.map(o => `<div class="select-opt ${val===o?'selected':''}" data-key="${s.key}" data-val="${o}">${o}</div>`).join('')
+      }</div>`;
+    case 'typednum':
+      return `<div class="typed-num-wrap">
+        <input type="number" class="typed-num" data-key="${s.key}" value="${val || ''}" min="${s.min??0}" max="${s.max??999}" inputmode="numeric" placeholder="0">
+        <div class="typed-num-unit">${s.unit || ''}</div>
+      </div>`;
+    case 'text':
+      return `<div class="voice-wrap">
+        <textarea class="text-input" data-key="${s.key}" placeholder="${s.placeholder||''}">${val}</textarea>
+        <button class="mic-btn" data-key="${s.key}" onclick="toggleVoice('${s.key}')">
+          <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1-9a1 1 0 1 1 2 0v6a1 1 0 1 1-2 0V5zm6 6a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/></svg>
+          <span class="mic-label">Tap to speak</span>
+        </button>
+        <div class="voice-status" id="voice-status-${s.key}"></div>
+      </div>`;
+    default: return '';
+  }
+}
+
+function bindInputEvents(s) {
+  // Slider
+  if (s.type === 'slider') {
+    const range = document.querySelector(`input[data-key="${s.key}"]`);
+    if (range) range.oninput = e => {
+      state.data[s.key] = parseInt(e.target.value);
+      const sv = document.getElementById(`sv-${s.key}`);
+      if (sv) sv.textContent = e.target.value;
+    };
+  }
+  // Chips (multi-select)
+  if (s.type === 'chips') {
+    document.querySelectorAll(`.chip[data-key="${s.key}"]`).forEach(el => {
+      el.onclick = () => {
+        const v = el.dataset.val;
+        const arr = state.data[s.key];
+        const idx = arr.indexOf(v);
+        if (idx === -1) arr.push(v); else arr.splice(idx, 1);
+        el.classList.toggle('selected');
+      };
+    });
+  }
+  // Select (single)
+  if (s.type === 'select') {
+    document.querySelectorAll(`.select-opt[data-key="${s.key}"]`).forEach(el => {
+      el.onclick = () => {
+        state.data[s.key] = el.dataset.val;
+        document.querySelectorAll(`.select-opt[data-key="${s.key}"]`).forEach(e => e.classList.remove('selected'));
+        el.classList.add('selected');
+      };
+    });
+  }
+  // Typed number
+  if (s.type === 'typednum') {
+    const inp = document.querySelector(`.typed-num[data-key="${s.key}"]`);
+    if (inp) inp.oninput = e => {
+      const v = parseFloat(e.target.value) || 0;
+      state.data[s.key] = Math.max(s.min??0, Math.min(s.max??999, v));
+    };
+  }
+  // Text
+  if (s.type === 'text') {
+    const ta = document.querySelector(`textarea[data-key="${s.key}"]`);
+    if (ta) ta.oninput = e => { state.data[s.key] = e.target.value; };
+  }
+}
+
+// ---- Number +/- ----
+window.adjustNum = function(key, delta) {
+  const flow = getFlow();
+  // Find min/max from flow definition
+  let min = 0, max = 999;
+  function findBounds(steps) {
+    for (const st of steps) {
+      if (st.key === key) { min = st.min ?? 0; max = st.max ?? 999; return; }
+      if (st.sections) findBounds(st.sections);
+    }
+  }
+  findBounds(flow);
+  let v = state.data[key] + delta;
+  v = Math.max(min, Math.min(max, Math.round(v * 10) / 10));
+  state.data[key] = v;
+  const nv = document.getElementById(`nv-${key}`);
+  if (nv) nv.textContent = v;
+};
+
+// ---- Summary ----
+function renderSummary() {
+  const d = state.data;
+  const tags = generateBevelTags(d);
+  let html = '<div class="summary">';
+
+  // Bevel tags section
+  html += `<div class="bevel-section">
+    <h2>Bevel Tags</h2>
+    <div class="bevel-tags">${
+      tags.length ? tags.map(t => `<span class="bevel-tag">${t}</span>`).join('') : '<span class="no-tags">No tags</span>'
+    }</div>
+  </div>`;
+
+  if (state.mode === 'morning') {
+    html += summaryCard('Sleep Quality', d.sleepQuality + ' / 10');
+    html += summaryCard('Energy Level', d.energyLevel + ' / 10');
+    html += summaryCard('Stress', d.stressLevel + ' / 10');
+    if (d.intention) html += summaryCard('Intention', d.intention);
+  } else {
+    html += summaryCard('Energy Level', d.energyLevel + ' / 10');
+    if (d.sportTypes.length) {
+      const sportDetail = d.sportTypes.map(s => s + ' (' + (d.sportDurations[s]||0) + ' min)').join(', ');
+      html += summaryCard('Sport', sportDetail);
+    }
+    html += summaryCard('Study', d.studyHours + ' h');
+    html += summaryCard('Work', d.workHours + ' h');
+    html += summaryCard('Screen Time', d.screenTime + ' h (Social Media: ' + d.socialMedia + ' h)');
+    html += summaryCard('Caffeine', d.caffeineMg + ' mg');
+    html += summaryCard('Calories', d.mealsKcal + ' kcal');
+    html += summaryCard('Water', d.hydrationL + ' L');
+    html += summaryCard('Social Contact', d.socialContact);
+    if (d.reflection) html += summaryCard('Reflection', d.reflection);
+  }
+  html += '</div>';
+  $screen.innerHTML = html;
+}
+
+function summaryCard(label, value) {
+  return `<div class="summary-card"><h3>${label}</h3><div class="val">${value}</div></div>`;
+}
+
+// ---- Navigation ----
+window.goNext = function() {
+  const flow = getFlow();
+  if (state.step < flow.length - 1) {
+    state.step++;
+    render();
+  }
+};
+
+window.goBack = function() {
+  if (state.step > 0) {
+    state.step--;
+    render();
+  } else {
+    // Go back to mode select
+    state.mode = null;
+    document.body.classList.remove('evening');
+    render();
+  }
+};
+
+window.saveEntry = async function() {
+  const d = state.data;
+  const tags = generateBevelTags(d);
+  const totalSportMin = Object.values(d.sportDurations).reduce((a,b) => a+b, 0);
+  const today = new Date().toISOString().split('T')[0];
+  const entryType = state.mode === 'morning' ? 'Morning' : 'Evening';
+
+  const DATABASE_ID = '8a0752eb807143e2bcc610ac4b952ac7';
+
+  const properties = {
+    'Entry':          { title: [{ text: { content: entryType + ' ' + today } }] },
+    'Date':           { date: { start: today } },
+    'Entry Type':     { select: { name: entryType } },
+    'Energy Level':   { number: d.energyLevel },
+    'Bevel Tags':     { rich_text: [{ text: { content: tags.join(', ') } }] },
+  };
+
+  if (state.mode === 'morning') {
+    properties['Sleep Quality'] = { number: d.sleepQuality };
+    properties['Stress Level']  = { number: d.stressLevel };
+    if (d.intention) properties['Intention'] = { rich_text: [{ text: { content: d.intention } }] };
+  } else {
+    if (d.sportTypes.length) {
+      properties['Sport Type'] = { multi_select: d.sportTypes.map(n => ({ name: n })) };
+      properties['Sport Duration'] = { number: totalSportMin };
+    }
+    properties['Study Hours']     = { number: d.studyHours };
+    properties['Work Hours']      = { number: d.workHours };
+    properties['Screen Time']     = { number: d.screenTime };
+    properties['Social Media Hrs']= { number: d.socialMedia };
+    properties['Caffeine']        = { number: d.caffeineMg };
+    properties['Calories']        = { number: d.mealsKcal };
+    properties['Hydration L']     = { number: d.hydrationL };
+    properties['Social Contact']  = { select: { name: d.socialContact } };
+    properties['Stress Level']    = { number: d.stressLevel };
+    if (d.reflection) properties['Reflection'] = { rich_text: [{ text: { content: d.reflection } }] };
+  }
+
+  // Raw transcript (combine intention + reflection)
+  const rawParts = [d.intention, d.reflection].filter(Boolean);
+  if (rawParts.length) {
+    properties['Raw Transcript'] = { rich_text: [{ text: { content: rawParts.join(' | ') } }] };
+  }
+
+  const body = { parent: { database_id: DATABASE_ID }, properties };
+
+  // Update UI
+  const saveBtn = document.querySelector('.btn-save');
+  if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
+
+  try {
+    const res = await fetch('/api/notion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+
+    if (res.ok) {
+      if (saveBtn) { saveBtn.textContent = 'Saved!'; saveBtn.style.background = 'var(--success)'; }
+      setTimeout(() => {
+        state.mode = null;
+        state.step = 0;
+        document.body.classList.remove('evening');
+        resetData();
+        render();
+      }, 1500);
+    } else {
+      throw new Error(result.message || 'Failed to save');
+    }
+  } catch (err) {
+    if (saveBtn) { saveBtn.textContent = 'Error - Retry'; saveBtn.disabled = false; saveBtn.style.background = 'var(--danger)'; }
+    console.error('Notion save error:', err);
+  }
+};
+
+function resetData() {
+  Object.assign(state.data, {
+    sleepQuality: 5, energyLevel: 5, stressLevel: 5, intention: '',
+    sportTypes: [], sportDurations: {}, studyHours: 0, workHours: 0,
+    screenTime: 0, socialMedia: 0, caffeineMg: 0, mealsKcal: 0,
+    hydrationL: 0, socialContact: 'Moderate', reflection: '',
+  });
+}
+
+// ============================================================
+//  VOICE INPUT (Web Speech API)
+// ============================================================
+let activeRecognition = null;
+let activeKey = null;
+
+window.toggleVoice = function(key) {
+  if (activeRecognition && activeKey === key) {
+    // Stop recording
+    activeRecognition.stop();
+    return;
+  }
+  if (activeRecognition) {
+    activeRecognition.stop();
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    setVoiceStatus(key, 'Voice not supported in this browser');
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'de-DE';
+  recognition.interimResults = true;
+  recognition.continuous = true;
+  recognition.maxAlternatives = 1;
+
+  activeRecognition = recognition;
+  activeKey = key;
+
+  const btn = document.querySelector(`.mic-btn[data-key="${key}"]`);
+  const ta = document.querySelector(`textarea[data-key="${key}"]`);
+  const baseText = ta ? ta.value : '';
+
+  if (btn) { btn.classList.add('recording'); btn.querySelector('.mic-label').textContent = 'Tap to stop'; }
+  setVoiceStatus(key, 'Listening...');
+
+  recognition.onresult = (event) => {
+    let interim = '';
+    let final = '';
+    for (let i = 0; i < event.results.length; i++) {
+      const t = event.results[i][0].transcript;
+      if (event.results[i].isFinal) final += t + ' ';
+      else interim += t;
+    }
+    const combined = (baseText ? baseText + ' ' : '') + final + interim;
+    if (ta) ta.value = combined;
+    state.data[key] = (baseText ? baseText + ' ' : '') + final.trim();
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === 'no-speech') {
+      setVoiceStatus(key, 'No speech detected. Try again.');
+    } else if (event.error !== 'aborted') {
+      setVoiceStatus(key, 'Error: ' + event.error);
+    }
+    stopRecording(key);
+  };
+
+  recognition.onend = () => {
+    stopRecording(key);
+  };
+
+  recognition.start();
+};
+
+function stopRecording(key) {
+  const btn = document.querySelector(`.mic-btn[data-key="${key}"]`);
+  if (btn) { btn.classList.remove('recording'); btn.querySelector('.mic-label').textContent = 'Tap to speak'; }
+  if (activeKey === key) {
+    activeRecognition = null;
+    activeKey = null;
+  }
+  const status = document.getElementById(`voice-status-${key}`);
+  if (status && status.textContent === 'Listening...') status.textContent = '';
+}
+
+function setVoiceStatus(key, msg) {
+  const el = document.getElementById(`voice-status-${key}`);
+  if (el) el.textContent = msg;
+}
+
+// ---- PWA Service Worker ----
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ---- Init ----
+render();
+</script>
+</body>
+</html>
