@@ -336,6 +336,92 @@ body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
 }
 .no-tags { color: var(--text-dim); font-style: italic; }
 
+/* ---- Apple Health Import ---- */
+.health-import {
+  width: 100%; display: flex; flex-direction: column;
+  align-items: center; gap: 16px; flex: 1;
+  overflow-y: auto; padding-bottom: 20px;
+}
+.health-import h1 { font-size: 1.5rem; font-weight: 700; }
+.health-import .sub-text { color: var(--text-dim); font-size: 0.9rem; text-align: center; }
+
+.hi-date-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.hi-date-input {
+  padding: 10px 14px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 1rem; font-family: inherit;
+  outline: none; -webkit-appearance: none;
+  color-scheme: dark;
+}
+.hi-date-input:focus { border-color: var(--accent); }
+
+.hi-upload-area {
+  width: 100%; padding: 32px 16px; border-radius: var(--radius);
+  background: var(--card); border: 2px dashed var(--card-border);
+  text-align: center; cursor: pointer; transition: all 0.2s;
+  position: relative;
+}
+.hi-upload-area:active { transform: scale(0.98); }
+.hi-upload-area.dragging { border-color: var(--accent); background: rgba(255,179,71,0.05); }
+.hi-upload-area svg { width: 40px; height: 40px; fill: var(--text-dim); margin-bottom: 8px; }
+.hi-upload-area p { color: var(--text-dim); font-size: 0.9rem; }
+.hi-upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.hi-progress {
+  width: 100%; text-align: center;
+}
+.hi-progress-bar {
+  width: 100%; height: 6px; border-radius: 3px;
+  background: var(--card-border); overflow: hidden; margin-bottom: 8px;
+}
+.hi-progress-fill {
+  height: 100%; background: var(--accent); border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.hi-progress-text { font-size: 0.85rem; color: var(--text-dim); }
+
+.hi-metrics {
+  width: 100%; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hi-metric {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px; border: 1px solid var(--card-border);
+  text-align: center;
+}
+.hi-metric .metric-label {
+  font-size: 0.7rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.hi-metric .metric-val {
+  font-size: 1.6rem; font-weight: 700; color: var(--accent);
+}
+.hi-metric .metric-unit {
+  font-size: 0.75rem; color: var(--text-dim);
+}
+.hi-metric.empty .metric-val { color: var(--text-dim); font-size: 1rem; }
+
+.hi-save-btn {
+  width: 100%; padding: 16px; border-radius: var(--radius);
+  background: var(--success); color: var(--bg);
+  font-size: 1rem; font-weight: 600; border: none;
+  cursor: pointer; transition: all 0.15s;
+}
+.hi-save-btn:active { transform: scale(0.97); }
+.hi-save-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+.hi-back-btn {
+  width: 100%; padding: 14px; border-radius: var(--radius);
+  background: var(--card); color: var(--text);
+  font-size: 0.95rem; font-weight: 500;
+  border: 2px solid var(--card-border); cursor: pointer;
+  transition: all 0.15s;
+}
+.hi-back-btn:active { transform: scale(0.97); }
+
 /* ---- Calendar Sync ---- */
 .cal-sync-bar {
   width: 100%; margin-bottom: 20px; text-align: center;
@@ -489,6 +575,7 @@ const $nav = document.getElementById('nav');
 
 function render() {
   if (!state.mode) { renderModeSelect(); return; }
+  if (state.mode === 'health-import') { renderHealthImport(); return; }
   const flow = getFlow();
   const step = flow[state.step];
   renderProgress(flow.length, state.step);
@@ -521,6 +608,11 @@ function renderModeSelect() {
           <div class="sub">Sport, Nutrition, Reflection</div>
         </button>
       </div>
+      <button class="mode-btn" onclick="showHealthImport()" style="padding:14px 20px; font-size:0.9rem;">
+        <span class="icon" style="font-size:1.4rem;">&#9829;</span>
+        Import Health Data
+        <div class="sub">Apple Health XML</div>
+      </button>
     </div>`;
 }
 
@@ -1020,6 +1112,292 @@ function autoDetectMode() {
   if (h >= 17) { selectMode('evening'); return true; }
   return false;
 }
+
+// ============================================================
+//  APPLE HEALTH IMPORT
+// ============================================================
+const HEALTH_TYPES = {
+  restingHR:  'HKQuantityTypeIdentifierRestingHeartRate',
+  hrv:        'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
+  sleep:      'HKCategoryTypeIdentifierSleepAnalysis',
+  steps:      'HKQuantityTypeIdentifierStepCount',
+  activeCal:  'HKQuantityTypeIdentifierActiveEnergyBurned',
+  spo2:       'HKQuantityTypeIdentifierOxygenSaturation',
+};
+
+let healthData = null;
+
+window.showHealthImport = function() {
+  state.mode = 'health-import';
+  healthData = null;
+  $progress.innerHTML = '';
+  $nav.innerHTML = '';
+  renderHealthImport();
+};
+
+function renderHealthImport() {
+  const today = new Date().toISOString().split('T')[0];
+  let html = `<div class="health-import">
+    <h1>Import Health Data</h1>
+    <p class="sub-text">Upload your Apple Health export (export.xml)</p>
+    <div class="hi-date-row">
+      <span style="color:var(--text-dim);font-size:0.9rem;">Date:</span>
+      <input type="date" class="hi-date-input" id="hi-date" value="${today}">
+    </div>`;
+
+  if (!healthData) {
+    html += `
+    <div class="hi-upload-area" id="hi-upload">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm5-6v4h2v-4h3l-4-4-4 4h3z"/></svg>
+      <p>Tap to select export.xml</p>
+      <input type="file" accept=".xml" onchange="handleHealthFile(event)">
+    </div>
+    <div class="hi-progress" id="hi-progress" style="display:none;">
+      <div class="hi-progress-bar"><div class="hi-progress-fill" id="hi-fill" style="width:0%"></div></div>
+      <div class="hi-progress-text" id="hi-status">Parsing...</div>
+    </div>`;
+  } else {
+    html += renderHealthMetrics();
+    html += `<button class="hi-save-btn" onclick="saveHealthToNotion()">Save to Notion</button>`;
+  }
+
+  html += `<button class="hi-back-btn" onclick="backToHome()">Back</button>`;
+  html += `</div>`;
+  $screen.innerHTML = html;
+
+  // Rebind date change to re-parse if data exists
+  const dateInput = document.getElementById('hi-date');
+  if (dateInput && healthData && healthData._rawRecords) {
+    dateInput.addEventListener('change', () => {
+      const newDate = dateInput.value;
+      healthData = aggregateForDate(healthData._rawRecords, newDate);
+      healthData._rawRecords = healthData._rawRecords; // keep reference
+      renderHealthImport();
+    });
+  }
+}
+
+function renderHealthMetrics() {
+  const d = healthData;
+  const metrics = [
+    { label: 'Resting HR', val: d.restingHR, unit: 'bpm' },
+    { label: 'HRV', val: d.hrv, unit: 'ms' },
+    { label: 'Sleep', val: d.sleepHours, unit: 'hours' },
+    { label: 'Steps', val: d.steps, unit: '' },
+    { label: 'Active Cal', val: d.activeCal, unit: 'kcal' },
+    { label: 'SpO2', val: d.spo2, unit: '%' },
+  ];
+  let html = '<div class="hi-metrics">';
+  metrics.forEach(m => {
+    const hasVal = m.val !== null && m.val !== undefined;
+    html += `<div class="hi-metric ${hasVal ? '' : 'empty'}">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-val">${hasVal ? m.val : '—'}</div>
+      ${hasVal ? `<div class="metric-unit">${m.unit}</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+window.handleHealthFile = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const upload = document.getElementById('hi-upload');
+  const progress = document.getElementById('hi-progress');
+  if (upload) upload.style.display = 'none';
+  if (progress) progress.style.display = 'block';
+
+  const date = document.getElementById('hi-date')?.value || new Date().toISOString().split('T')[0];
+
+  try {
+    const records = await parseHealthXMLStreaming(file, date, (pct, msg) => {
+      const fill = document.getElementById('hi-fill');
+      const status = document.getElementById('hi-status');
+      if (fill) fill.style.width = pct + '%';
+      if (status) status.textContent = msg;
+    });
+
+    healthData = aggregateForDate(records, date);
+    healthData._rawRecords = records;
+    renderHealthImport();
+  } catch(err) {
+    const status = document.getElementById('hi-status');
+    if (status) { status.textContent = 'Error: ' + err.message; status.style.color = 'var(--danger)'; }
+    console.error('Health parse error:', err);
+  }
+};
+
+// Streaming XML parser — reads file in chunks, extracts Record elements
+async function parseHealthXMLStreaming(file, targetDate, onProgress) {
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+  const totalSize = file.size;
+  let offset = 0;
+  const records = [];
+  let buffer = '';
+
+  // Target date range (midnight to midnight)
+  const dayStart = targetDate + ' 00:00:00';
+  const dayEnd = targetDate + ' 23:59:59';
+  // Also check ISO format dates
+  const dayStartISO = targetDate + 'T00:00:00';
+  const dayEndISO = targetDate + 'T23:59:59';
+
+  const relevantTypes = new Set(Object.values(HEALTH_TYPES));
+
+  while (offset < totalSize) {
+    const chunk = file.slice(offset, offset + CHUNK_SIZE);
+    const text = await chunk.text();
+    buffer += text;
+    offset += CHUNK_SIZE;
+
+    // Extract complete <Record .../> elements
+    const recordRegex = /<Record\s[^>]*\/>/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = recordRegex.exec(buffer)) !== null) {
+      lastIndex = match.index + match[0].length;
+      const tag = match[0];
+
+      // Quick type check before parsing attributes
+      let hasRelevantType = false;
+      for (const t of relevantTypes) {
+        if (tag.includes(t)) { hasRelevantType = true; break; }
+      }
+      if (!hasRelevantType) continue;
+
+      // Extract attributes
+      const type = extractAttr(tag, 'type');
+      const startDate = extractAttr(tag, 'startDate') || '';
+      const endDate = extractAttr(tag, 'endDate') || '';
+      const value = extractAttr(tag, 'value');
+
+      if (!type || !relevantTypes.has(type)) continue;
+
+      // Date filter — check if the record falls within the target day
+      const dateStr = startDate.substring(0, 10); // first 10 chars = YYYY-MM-DD
+      if (dateStr !== targetDate) continue;
+
+      records.push({ type, startDate, endDate, value: parseFloat(value) || 0 });
+    }
+
+    // Keep unprocessed tail in buffer
+    buffer = buffer.substring(lastIndex);
+
+    const pct = Math.min(100, Math.round((offset / totalSize) * 100));
+    onProgress(pct, `Parsing... ${pct}% (${records.length} records found)`);
+  }
+
+  onProgress(100, `Done! ${records.length} records found.`);
+  return records;
+}
+
+function extractAttr(tag, name) {
+  const regex = new RegExp(name + '="([^"]*)"');
+  const m = tag.match(regex);
+  return m ? m[1] : null;
+}
+
+function aggregateForDate(records, date) {
+  const result = {
+    restingHR: null, hrv: null, sleepHours: null,
+    steps: null, activeCal: null, spo2: null
+  };
+
+  const restingHRs = [], hrvs = [], spo2s = [];
+  let totalSteps = 0, totalActiveCal = 0, totalSleepMin = 0;
+  let hasSteps = false, hasActiveCal = false, hasSleep = false;
+
+  records.forEach(r => {
+    if (r.startDate.substring(0, 10) !== date) return;
+
+    switch (r.type) {
+      case HEALTH_TYPES.restingHR:
+        restingHRs.push(r.value); break;
+      case HEALTH_TYPES.hrv:
+        hrvs.push(r.value); break;
+      case HEALTH_TYPES.spo2:
+        spo2s.push(r.value * 100); break; // stored as 0-1
+      case HEALTH_TYPES.steps:
+        totalSteps += r.value; hasSteps = true; break;
+      case HEALTH_TYPES.activeCal:
+        totalActiveCal += r.value; hasActiveCal = true; break;
+      case HEALTH_TYPES.sleep:
+        // Sleep value categories: InBed=0, Asleep/AsleepCore/AsleepDeep/AsleepREM
+        // Calculate duration from start to end for sleep records
+        if (r.startDate && r.endDate) {
+          const s = new Date(r.startDate.replace(' ', 'T'));
+          const e = new Date(r.endDate.replace(' ', 'T'));
+          const mins = (e - s) / 60000;
+          if (mins > 0 && mins < 1440) { totalSleepMin += mins; hasSleep = true; }
+        }
+        break;
+    }
+  });
+
+  if (restingHRs.length) result.restingHR = Math.round(avg(restingHRs));
+  if (hrvs.length) result.hrv = Math.round(avg(hrvs));
+  if (spo2s.length) result.spo2 = Math.round(avg(spo2s) * 10) / 10;
+  if (hasSteps) result.steps = Math.round(totalSteps);
+  if (hasActiveCal) result.activeCal = Math.round(totalActiveCal);
+  if (hasSleep) result.sleepHours = Math.round(totalSleepMin / 6) / 10; // round to 0.1h
+
+  return result;
+}
+
+function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
+
+window.saveHealthToNotion = async function() {
+  if (!healthData) return;
+
+  const date = document.getElementById('hi-date')?.value || new Date().toISOString().split('T')[0];
+  const DATABASE_ID = '8a0752eb807143e2bcc610ac4b952ac7';
+
+  const properties = {
+    'Entry': { title: [{ text: { content: 'Health Import ' + date } }] },
+    'Date': { date: { start: date } },
+    'Entry Type': { select: { name: 'Morning' } },
+  };
+
+  if (healthData.restingHR !== null) properties['Resting HR'] = { number: healthData.restingHR };
+  if (healthData.hrv !== null) properties['HRV'] = { number: healthData.hrv };
+  if (healthData.sleepHours !== null) properties['Sleep Duration'] = { number: healthData.sleepHours };
+  if (healthData.steps !== null) properties['Steps'] = { number: healthData.steps };
+  if (healthData.activeCal !== null) properties['Active Calories'] = { number: healthData.activeCal };
+  if (healthData.spo2 !== null) properties['SpO2'] = { number: healthData.spo2 };
+
+  const body = { parent: { database_id: DATABASE_ID }, properties };
+
+  const btn = document.querySelector('.hi-save-btn');
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+  try {
+    const res = await fetch('/api/notion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+
+    if (res.ok) {
+      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+      if (btn) { btn.textContent = 'Saved!'; btn.style.background = 'var(--success)'; }
+    } else {
+      throw new Error(result.message || 'Failed to save');
+    }
+  } catch(err) {
+    if (btn) { btn.textContent = 'Error - Retry'; btn.disabled = false; btn.style.background = 'var(--danger)'; }
+    console.error('Notion save error:', err);
+  }
+};
+
+window.backToHome = function() {
+  state.mode = null;
+  healthData = null;
+  render();
+};
 
 // ============================================================
 //  GOOGLE CALENDAR SYNC
