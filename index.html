@@ -737,6 +737,147 @@ body.evening .select-opt.selected { background: rgba(123,104,238,0.15); }
 body.evening .bevel-section { border-color: var(--accent); }
 body.evening .bevel-tag { background: rgba(123,104,238,0.15); color: var(--accent); }
 body.evening .bevel-section h2 { color: var(--accent); }
+
+/* ==============================================================
+   DESKTOP LAYOUT (>768px)
+   ============================================================== */
+@media (min-width: 768px) {
+  html, body { overflow: auto; }
+
+  /* Wider container */
+  #app {
+    max-width: 900px;
+    padding: 0 40px 40px;
+    height: auto; min-height: 100vh;
+  }
+
+  /* Clean top bar */
+  .top-bar {
+    padding: 16px 0 8px;
+    min-height: 48px;
+  }
+  .theme-toggle { top: 14px; font-size: 1.2rem; }
+  .gear-btn { top: 14px; left: 36px; font-size: 1.2rem; }
+  .lang-toggle { top: 16px; }
+
+  /* Screen area fills naturally */
+  .screen-area {
+    min-height: 400px; flex: unset;
+    padding: 24px 0;
+  }
+
+  /* Home screen: 4 buttons in one row */
+  .mode-screen { gap: 24px; }
+  .mode-screen h1 { font-size: 2.2rem; }
+  .mode-screen .mode-btns { gap: 16px; }
+  .mode-screen > .mode-btns:first-of-type,
+  .mode-screen > .mode-btns:nth-of-type(2) {
+    /* Merge both rows into one flex container visually */
+  }
+  /* 4-col layout: override the 2x2 by making mode-btns wrap */
+  .mode-screen {
+    display: flex; flex-direction: column;
+    align-items: center;
+  }
+  .mode-screen > .mode-btns {
+    display: flex; flex-wrap: nowrap;
+  }
+  .mode-btn { min-width: 0; }
+  .mode-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(255,179,71,0.15);
+  }
+
+  /* Question screens: centered card */
+  .q-label { font-size: 1.7rem; }
+  .slider-wrap, .num-input, .chips, .select-options,
+  .voice-wrap, .combined, .sport-list, .suppl-screen,
+  .typed-num-wrap {
+    max-width: 500px; margin-left: auto; margin-right: auto;
+  }
+
+  /* Slider bigger */
+  .slider-value { font-size: 5rem; }
+  input[type=range] { height: 8px; }
+  input[type=range]::-webkit-slider-thumb { width: 36px; height: 36px; }
+
+  /* Nav bar */
+  .nav {
+    max-width: 500px; margin: 0 auto;
+    padding: 20px 0 32px;
+  }
+  .nav button { padding: 18px; font-size: 1.05rem; }
+  .nav button:hover { transform: translateY(-1px); }
+
+  /* Summary: two-column */
+  .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .bevel-section {
+    grid-column: 1 / -1;
+  }
+
+  /* Supplements: wider grid */
+  .suppl-grid { max-width: 600px; margin: 0 auto; }
+  .suppl-chip { padding: 12px 20px; font-size: 0.9rem; }
+
+  /* Trends: 2x2 chart grid */
+  .trends {
+    max-width: 900px;
+  }
+  .trends .chart-card {
+    break-inside: avoid;
+  }
+  /* Use CSS columns for the chart cards */
+  .trends {
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .trends-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .corr-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .chart-card canvas { max-height: 260px; }
+
+  /* Settings: centered */
+  .settings {
+    max-width: 500px; margin: 0 auto;
+  }
+
+  /* Health import: centered */
+  .health-import {
+    max-width: 600px; margin: 0 auto;
+  }
+  .hi-metrics { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* Hover effects on interactive elements */
+  .chip:hover, .select-opt:hover, .sport-chip:hover, .suppl-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .range-btn:hover { transform: translateY(-1px); }
+  .cal-sync-btn:hover { transform: translateY(-1px); }
+  .hi-save-btn:hover, .setting-test-btn:hover { transform: translateY(-1px); }
+
+  /* Keyboard shortcut hints */
+  .kbd-hint {
+    display: inline-block;
+    padding: 2px 6px; margin-left: 6px;
+    border-radius: 4px; font-size: 0.65rem;
+    background: var(--card-border); color: var(--text-dim);
+    font-family: monospace; vertical-align: middle;
+  }
+}
+
+/* Hide keyboard hints on mobile */
+@media (max-width: 767px) {
+  .kbd-hint { display: none; }
+}
 </style>
 </head>
 <body>
@@ -1045,11 +1186,11 @@ function renderNav(total, current, isSummary) {
   const isFirst = current === 0;
   const isLast = current === total - 1;
   let html = '';
-  html += `<button class="btn-back" onclick="goBack()">${t('back')}</button>`;
+  html += `<button class="btn-back" onclick="goBack()">${t('back')}<span class="kbd-hint">Bksp</span></button>`;
   if (isSummary) {
-    html += `<button class="btn-save" onclick="saveEntry()">${t('save')}</button>`;
+    html += `<button class="btn-save" onclick="saveEntry()">${t('save')}<span class="kbd-hint">Enter</span></button>`;
   } else {
-    html += `<button class="btn-next" onclick="goNext()">${t('next')}</button>`;
+    html += `<button class="btn-next" onclick="goNext()">${t('next')}<span class="kbd-hint">Enter</span></button>`;
   }
   $nav.innerHTML = html;
 }
@@ -1629,10 +1770,12 @@ function renderTrends() {
   } else if (trendsData.length === 0) {
     html += `<div style="text-align:center;color:var(--text-dim);padding:40px 0;">${t('no_entries')}</div>`;
   } else {
+    html += `<div class="trends-charts-grid">`;
     html += `<div class="chart-card"><h2>${t('sleep_recovery')}</h2><canvas id="chart-sleep"></canvas></div>`;
     html += `<div class="chart-card"><h2>${t('activity')}</h2><canvas id="chart-activity"></canvas></div>`;
     html += `<div class="chart-card"><h2>${t('biometrics')}</h2><canvas id="chart-bio"></canvas></div>`;
     html += `<div class="chart-card"><h2>${t('correlations')}</h2><div class="corr-grid" id="corr-cards"></div></div>`;
+    html += `</div>`;
   }
 
   html += `<button class="hi-back-btn" onclick="backToHome()">Back</button>`;
@@ -2454,6 +2597,44 @@ if (navigator.serviceWorker) {
     }
   });
 }
+
+// ---- Desktop Keyboard Shortcuts ----
+document.addEventListener('keydown', e => {
+  // Skip if typing in an input
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  // Skip on non-flow screens
+  if (!state.mode || state.mode === 'trends' || state.mode === 'health-import' || state.mode === 'settings') return;
+
+  const flow = getFlow();
+  const step = flow[state.step];
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (step.type === 'summary') saveEntry();
+    else goNext();
+  }
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    goBack();
+  }
+  // 1-9 for sliders
+  if (step.type === 'slider' && e.key >= '1' && e.key <= '9') {
+    const val = parseInt(e.key);
+    state.data[step.key] = val;
+    const sv = document.getElementById(`sv-${step.key}`);
+    const range = document.querySelector(`input[data-key="${step.key}"]`);
+    if (sv) sv.textContent = val;
+    if (range) range.value = val;
+  }
+  if (step.type === 'slider' && e.key === '0') {
+    state.data[step.key] = 10;
+    const sv = document.getElementById(`sv-${step.key}`);
+    const range = document.querySelector(`input[data-key="${step.key}"]`);
+    if (sv) sv.textContent = 10;
+    if (range) range.value = 10;
+  }
+});
 
 // ---- Init ----
 applyTheme();
