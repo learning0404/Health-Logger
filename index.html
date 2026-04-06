@@ -654,6 +654,75 @@ body.evening .suppl-chip.selected {
 .screen-area.slide-in-left   { opacity: 0; transform: translateX(40px); }
 .screen-area.slide-in-right  { opacity: 0; transform: translateX(-40px); }
 
+/* ---- Settings ---- */
+.settings {
+  width: 100%; display: flex; flex-direction: column;
+  gap: 16px; flex: 1; overflow-y: auto;
+  padding-bottom: 24px;
+}
+.settings h1 { font-size: 1.5rem; font-weight: 700; text-align: center; }
+
+.setting-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; border: 1px solid var(--card-border);
+}
+.setting-card h3 {
+  font-size: 0.8rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+}
+.setting-row + .setting-row { border-top: 1px solid var(--card-border); }
+.setting-label { font-size: 0.95rem; }
+.setting-time {
+  padding: 6px 10px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--card-border);
+  color: var(--text); font-size: 0.9rem; font-family: inherit;
+  outline: none; color-scheme: dark;
+}
+body.light .setting-time { color-scheme: light; }
+.setting-time:focus { border-color: var(--accent); }
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative; width: 44px; height: 24px;
+  background: var(--card-border); border-radius: 12px;
+  cursor: pointer; transition: background 0.2s;
+  border: none; padding: 0;
+}
+.toggle-switch.on { background: var(--accent); }
+.toggle-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--text); transition: transform 0.2s;
+}
+.toggle-switch.on::after { transform: translateX(20px); background: #fff; }
+
+.setting-info {
+  background: rgba(255,179,71,0.1); border: 1px solid rgba(255,179,71,0.2);
+  border-radius: var(--radius); padding: 12px;
+  font-size: 0.8rem; color: var(--text-dim); line-height: 1.4;
+}
+
+.setting-test-btn {
+  width: 100%; padding: 14px; border-radius: var(--radius);
+  background: var(--accent); color: var(--bg);
+  font-size: 0.95rem; font-weight: 600; border: none;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.setting-test-btn:active { transform: scale(0.97); }
+
+.gear-btn {
+  position: absolute; left: 30px; top: 10px;
+  background: none; border: none; cursor: pointer;
+  font-size: 1.1rem; padding: 4px; line-height: 1;
+  opacity: 0.6; transition: opacity 0.2s;
+}
+.gear-btn:hover, .gear-btn:active { opacity: 1; }
+
 /* Light mode overrides */
 body.light .hi-date-input { color-scheme: light; }
 body.light .skeleton {
@@ -674,6 +743,7 @@ body.evening .bevel-section h2 { color: var(--accent); }
 <div id="app">
   <div class="top-bar">
     <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">&#127769;</button>
+    <button class="gear-btn" id="gear-btn" onclick="showSettings()">&#9881;&#65039;</button>
     <div class="progress" id="progress"></div>
     <button class="lang-toggle" id="lang-toggle" onclick="toggleLang()">
       <span class="lang-opt" id="lang-de">DE</span>
@@ -810,6 +880,19 @@ const T = {
   correlations:       { en: 'Correlations', de: 'Korrelationen' },
   no_entries:         { en: 'No entries found for this period.', de: 'Keine Eintraege fuer diesen Zeitraum.' },
   no_bio_data:        { en: 'No biometric data yet. Import Apple Health data to see trends.', de: 'Noch keine Biodaten. Apple Health importieren.' },
+  // Settings
+  settings_title:     { en: 'Settings', de: 'Einstellungen' },
+  reminders:          { en: 'Reminders', de: 'Erinnerungen' },
+  morning_reminder:   { en: 'Morning Reminder', de: 'Morgen-Erinnerung' },
+  evening_reminder:   { en: 'Evening Reminder', de: 'Abend-Erinnerung' },
+  test_notification:  { en: 'Test Notification', de: 'Test-Benachrichtigung' },
+  notif_info:         { en: 'Install this app on your home screen for notifications to work. On iOS, requires 16.4+.', de: 'App auf dem Homescreen installieren fuer Benachrichtigungen. iOS 16.4+ noetig.' },
+  notif_morning_msg:  { en: 'Good morning! Time for your check-in ☀️', de: 'Guten Morgen! Zeit fuer dein Check-in ☀️' },
+  notif_evening_msg:  { en: 'Time for your evening review 🌙', de: 'Zeit fuer dein Abend Review 🌙' },
+  notif_test_msg:     { en: 'Notifications are working!', de: 'Benachrichtigungen funktionieren!' },
+  notif_blocked:      { en: 'Notifications blocked. Enable in browser settings.', de: 'Benachrichtigungen blockiert. In Browser-Einstellungen aktivieren.' },
+  notif_granted:      { en: 'Notifications enabled!', de: 'Benachrichtigungen aktiviert!' },
+  notif_denied:       { en: 'Permission denied', de: 'Berechtigung verweigert' },
 };
 
 function t(key) { return (T[key] && T[key][currentLang]) || T[key]?.en || key; }
@@ -888,6 +971,7 @@ function render() {
   if (!state.mode) { renderModeSelect(); return; }
   if (state.mode === 'health-import') { renderHealthImport(); return; }
   if (state.mode === 'trends') { renderTrends(); return; }
+  if (state.mode === 'settings') { renderSettings(); return; }
   const flow = getFlow();
   const step = flow[state.step];
   renderProgress(flow.length, state.step);
@@ -2210,6 +2294,126 @@ function updateLangToggleUI() {
 }
 
 // ============================================================
+//  SETTINGS & PUSH NOTIFICATIONS
+// ============================================================
+const DEFAULT_REMINDERS = { morningEnabled: true, morningTime: '07:30', eveningEnabled: true, eveningTime: '22:00' };
+
+function getReminders() {
+  try {
+    const raw = localStorage.getItem('health-reminders');
+    return raw ? { ...DEFAULT_REMINDERS, ...JSON.parse(raw) } : { ...DEFAULT_REMINDERS };
+  } catch(e) { return { ...DEFAULT_REMINDERS }; }
+}
+function saveReminders(r) {
+  try { localStorage.setItem('health-reminders', JSON.stringify(r)); } catch(e) {}
+}
+
+window.showSettings = function() {
+  state.mode = 'settings';
+  $progress.innerHTML = '';
+  $nav.innerHTML = '';
+  renderSettings();
+};
+
+function renderSettings() {
+  const r = getReminders();
+  const notifSupported = 'Notification' in window;
+  const permStatus = notifSupported ? Notification.permission : 'unsupported';
+
+  let html = `<div class="settings">
+    <h1>${t('settings_title')}</h1>
+
+    <div class="setting-info">${t('notif_info')}</div>
+
+    <div class="setting-card">
+      <h3>${t('reminders')}</h3>
+
+      <div class="setting-row">
+        <span class="setting-label">${t('morning_reminder')}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="time" class="setting-time" id="set-morning-time" value="${r.morningTime}"
+            ${r.morningEnabled?'':'style="opacity:0.4"'}>
+          <button class="toggle-switch ${r.morningEnabled?'on':''}" id="set-morning-toggle"
+            onclick="toggleReminder('morning')"></button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">${t('evening_reminder')}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="time" class="setting-time" id="set-evening-time" value="${r.eveningTime}"
+            ${r.eveningEnabled?'':'style="opacity:0.4"'}>
+          <button class="toggle-switch ${r.eveningEnabled?'on':''}" id="set-evening-toggle"
+            onclick="toggleReminder('evening')"></button>
+        </div>
+      </div>
+    </div>
+
+    <button class="setting-test-btn" onclick="testNotification()">${t('test_notification')}</button>
+    <button class="hi-back-btn" onclick="backToHome()">${t('back')}</button>
+  </div>`;
+
+  $screen.innerHTML = html;
+
+  // Bind time change events
+  document.getElementById('set-morning-time')?.addEventListener('change', e => {
+    const r = getReminders(); r.morningTime = e.target.value; saveReminders(r); scheduleNotifications();
+  });
+  document.getElementById('set-evening-time')?.addEventListener('change', e => {
+    const r = getReminders(); r.eveningTime = e.target.value; saveReminders(r); scheduleNotifications();
+  });
+}
+
+window.toggleReminder = function(which) {
+  const r = getReminders();
+  if (which === 'morning') r.morningEnabled = !r.morningEnabled;
+  if (which === 'evening') r.eveningEnabled = !r.eveningEnabled;
+  saveReminders(r);
+  renderSettings();
+  scheduleNotifications();
+};
+
+window.testNotification = async function() {
+  if (!('Notification' in window)) { alert(t('notif_blocked')); return; }
+  if (Notification.permission === 'denied') { alert(t('notif_blocked')); return; }
+  if (Notification.permission !== 'granted') {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert(t('notif_denied')); return; }
+  }
+  // Send via service worker if available, otherwise direct
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'show-notification',
+      title: 'Health Logger',
+      body: t('notif_test_msg')
+    });
+  } else {
+    new Notification('Health Logger', { body: t('notif_test_msg'), icon: '/icon-192.svg' });
+  }
+};
+
+// Request notification permission on first load (non-blocking)
+async function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    // Don't ask immediately, wait for user to interact with settings
+  }
+}
+
+// Schedule notification checks via service worker
+function scheduleNotifications() {
+  const r = getReminders();
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'update-reminders',
+      reminders: r,
+      lang: currentLang,
+      morningMsg: t('notif_morning_msg'),
+      eveningMsg: t('notif_evening_msg'),
+    });
+  }
+}
+
+// ============================================================
 //  THEME TOGGLE (Dark / Light)
 // ============================================================
 let currentTheme = (() => { try { return localStorage.getItem('health-theme') || 'dark'; } catch(e) { return 'dark'; } })();
@@ -2236,7 +2440,19 @@ function applyTheme() {
 
 // ---- PWA Service Worker ----
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').then(() => {
+    // Send reminder config to SW once it's ready
+    navigator.serviceWorker.ready.then(() => setTimeout(scheduleNotifications, 500));
+  }).catch(() => {});
+}
+
+// Listen for SW messages (e.g. notification click → open flow)
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'open-flow') {
+      selectMode(e.data.flow); // 'morning' or 'evening'
+    }
+  });
 }
 
 // ---- Init ----
