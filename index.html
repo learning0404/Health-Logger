@@ -744,131 +744,159 @@ body.evening .bevel-section h2 { color: var(--accent); }
 @media (min-width: 768px) {
   html, body { overflow: auto; }
 
-  /* Wider container */
+  /* Full-width container */
   #app {
-    max-width: 900px;
-    padding: 0 40px 40px;
+    max-width: 1200px;
+    padding: 0 60px 60px;
     height: auto; min-height: 100vh;
   }
 
   /* Clean top bar */
   .top-bar {
-    padding: 16px 0 8px;
-    min-height: 48px;
+    padding: 20px 0 12px;
+    min-height: 56px;
   }
-  .theme-toggle { top: 14px; font-size: 1.2rem; }
-  .gear-btn { top: 14px; left: 36px; font-size: 1.2rem; }
-  .lang-toggle { top: 16px; }
+  .theme-toggle { top: 18px; font-size: 1.4rem; }
+  .gear-btn { top: 18px; left: 40px; font-size: 1.4rem; }
+  .lang-toggle { top: 20px; }
+  .lang-opt { padding: 5px 10px; font-size: 0.75rem; }
 
   /* Screen area fills naturally */
   .screen-area {
-    min-height: 400px; flex: unset;
-    padding: 24px 0;
+    min-height: 500px; flex: unset;
+    padding: 32px 0;
   }
 
   /* Home screen: 4 buttons in one row */
-  .mode-screen { gap: 24px; }
-  .mode-screen h1 { font-size: 2.2rem; }
-  .mode-screen .mode-btns { gap: 16px; }
-  .mode-screen > .mode-btns:first-of-type,
-  .mode-screen > .mode-btns:nth-of-type(2) {
-    /* Merge both rows into one flex container visually */
-  }
-  /* 4-col layout: override the 2x2 by making mode-btns wrap */
-  .mode-screen {
-    display: flex; flex-direction: column;
-    align-items: center;
-  }
+  .mode-screen { gap: 32px; }
+  .mode-screen h1 { font-size: 2.8rem; }
+  .mode-screen p { font-size: 1.2rem; }
+  .mode-screen .mode-btns { gap: 20px; }
   .mode-screen > .mode-btns {
     display: flex; flex-wrap: nowrap;
   }
-  .mode-btn { min-width: 0; }
+  .mode-btn {
+    min-width: 0; padding: 32px 24px !important;
+    font-size: 1.2rem !important;
+  }
+  .mode-btn .icon { font-size: 2.5rem !important; }
+  .mode-btn .sub { font-size: 0.9rem !important; }
   .mode-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(255,179,71,0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 24px rgba(255,179,71,0.2);
   }
 
-  /* Question screens: centered card */
-  .q-label { font-size: 1.7rem; }
+  /* Question screens: wide centered card */
+  .q-label { font-size: 2.2rem; margin-bottom: 48px; }
   .slider-wrap, .num-input, .chips, .select-options,
   .voice-wrap, .combined, .sport-list, .suppl-screen,
   .typed-num-wrap {
-    max-width: 500px; margin-left: auto; margin-right: auto;
+    max-width: 700px; margin-left: auto; margin-right: auto;
   }
 
-  /* Slider bigger */
-  .slider-value { font-size: 5rem; }
-  input[type=range] { height: 8px; }
-  input[type=range]::-webkit-slider-thumb { width: 36px; height: 36px; }
+  /* Slider much bigger */
+  .slider-value { font-size: 6rem; }
+  input[type=range] { height: 10px; max-width: 700px; }
+  input[type=range]::-webkit-slider-thumb { width: 42px; height: 42px; }
+
+  /* Number inputs bigger */
+  .num-input button { width: 64px; height: 64px; font-size: 2rem; }
+  .num-val { font-size: 4rem; min-width: 100px; }
+
+  /* Text inputs bigger */
+  .text-input { min-height: 160px; font-size: 1.1rem; padding: 20px; }
+  .typed-num { width: 160px; font-size: 3rem; padding: 16px; }
+
+  /* Select options wider */
+  .select-options { max-width: 700px; }
+  .select-opt { padding: 20px 24px; font-size: 1.1rem; }
+
+  /* Sport chips wider */
+  .sport-list { max-width: 700px; }
+  .sport-chip { padding: 18px 20px; font-size: 1.05rem; }
+  .sport-dur { width: 90px; font-size: 1.3rem; }
 
   /* Nav bar */
   .nav {
-    max-width: 500px; margin: 0 auto;
-    padding: 20px 0 32px;
+    max-width: 700px; margin: 0 auto;
+    padding: 24px 0 40px;
   }
-  .nav button { padding: 18px; font-size: 1.05rem; }
-  .nav button:hover { transform: translateY(-1px); }
+  .nav button { padding: 20px; font-size: 1.1rem; border-radius: 20px; }
+  .nav button:hover { transform: translateY(-2px); }
 
   /* Summary: two-column */
   .summary {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 16px;
+    max-width: 900px; margin: 0 auto;
   }
+  .summary-card { padding: 20px; }
+  .summary-card .val { font-size: 1.4rem; }
   .bevel-section {
     grid-column: 1 / -1;
+    padding: 20px;
   }
 
-  /* Supplements: wider grid */
-  .suppl-grid { max-width: 600px; margin: 0 auto; }
-  .suppl-chip { padding: 12px 20px; font-size: 0.9rem; }
+  /* Supplements: wide grid */
+  .suppl-screen { max-width: 800px; margin: 0 auto; }
+  .suppl-grid { max-width: 800px; }
+  .suppl-chip { padding: 14px 24px; font-size: 1rem; }
+  .suppl-top { max-width: 800px; }
 
   /* Trends: 2x2 chart grid */
-  .trends {
-    max-width: 900px;
-  }
-  .trends .chart-card {
-    break-inside: avoid;
-  }
-  /* Use CSS columns for the chart cards */
-  .trends {
-    display: flex; flex-direction: column; gap: 16px;
-  }
+  .trends { max-width: 1100px; margin: 0 auto; }
+  .trends h1 { font-size: 2rem; }
   .trends-charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 20px;
   }
-  .corr-grid {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-  .chart-card canvas { max-height: 260px; }
+  .chart-card { padding: 24px; }
+  .chart-card h2 { font-size: 0.95rem; margin-bottom: 16px; }
+  .chart-card canvas { max-height: 300px; }
+  .corr-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .corr-card { padding: 20px; }
+  .corr-val { font-size: 2rem; }
+  .range-btn { padding: 10px 20px; font-size: 0.9rem; }
 
-  /* Settings: centered */
-  .settings {
-    max-width: 500px; margin: 0 auto;
-  }
+  /* Settings: centered wider */
+  .settings { max-width: 650px; margin: 0 auto; }
+  .settings h1 { font-size: 2rem; }
+  .setting-card { padding: 24px; }
+  .setting-label { font-size: 1.05rem; }
 
-  /* Health import: centered */
-  .health-import {
-    max-width: 600px; margin: 0 auto;
-  }
-  .hi-metrics { grid-template-columns: 1fr 1fr 1fr; }
+  /* Health import: centered wider */
+  .health-import { max-width: 750px; margin: 0 auto; }
+  .health-import h1 { font-size: 2rem; }
+  .hi-metrics { grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .hi-metric { padding: 20px; }
+  .hi-metric .metric-val { font-size: 2rem; }
+  .hi-upload-area { padding: 48px 24px; }
+  .hi-upload-area svg { width: 56px; height: 56px; }
+
+  /* Calendar sync bar */
+  .cal-sync-bar { margin-bottom: 28px; }
+  .cal-sync-btn { padding: 14px 24px; font-size: 1rem; }
 
   /* Hover effects on interactive elements */
   .chip:hover, .select-opt:hover, .sport-chip:hover, .suppl-chip:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
   }
-  .range-btn:hover { transform: translateY(-1px); }
-  .cal-sync-btn:hover { transform: translateY(-1px); }
-  .hi-save-btn:hover, .setting-test-btn:hover { transform: translateY(-1px); }
+  .range-btn:hover, .cal-sync-btn:hover { transform: translateY(-1px); }
+  .hi-save-btn:hover, .setting-test-btn:hover,
+  .hi-back-btn:hover { transform: translateY(-2px); }
+
+  /* Progress dots bigger */
+  .progress .dot { width: 10px; height: 10px; }
+  .progress { gap: 10px; }
 
   /* Keyboard shortcut hints */
   .kbd-hint {
     display: inline-block;
-    padding: 2px 6px; margin-left: 6px;
-    border-radius: 4px; font-size: 0.65rem;
+    padding: 2px 8px; margin-left: 8px;
+    border-radius: 4px; font-size: 0.7rem;
     background: var(--card-border); color: var(--text-dim);
     font-family: monospace; vertical-align: middle;
   }
