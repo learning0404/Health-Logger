@@ -337,8 +337,13 @@ body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
 .no-tags { color: var(--text-dim); font-style: italic; }
 
 /* ---- Transitions ---- */
-.screen-area { transition: opacity 0.2s; }
-.screen-area.fading { opacity: 0; }
+.screen-area {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.screen-area.slide-out-left  { opacity: 0; transform: translateX(-40px); }
+.screen-area.slide-out-right { opacity: 0; transform: translateX(40px); }
+.screen-area.slide-in-left   { opacity: 0; transform: translateX(40px); }
+.screen-area.slide-in-right  { opacity: 0; transform: translateX(-40px); }
 
 /* Evening accent override */
 body.evening { --accent: #7B68EE; }
@@ -734,23 +739,39 @@ function summaryCard(label, value) {
 }
 
 // ---- Navigation ----
+function animateTransition(direction, callback) {
+  const outClass = direction === 'forward' ? 'slide-out-left' : 'slide-out-right';
+  const inClass  = direction === 'forward' ? 'slide-in-left'  : 'slide-in-right';
+  $screen.classList.add(outClass);
+  setTimeout(() => {
+    callback();
+    $screen.classList.remove(outClass);
+    $screen.classList.add(inClass);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => $screen.classList.remove(inClass));
+    });
+  }, 200);
+}
+
 window.goNext = function() {
   const flow = getFlow();
   if (state.step < flow.length - 1) {
-    state.step++;
-    render();
+    animateTransition('forward', () => { state.step++; render(); });
+    saveDraft();
   }
 };
 
 window.goBack = function() {
   if (state.step > 0) {
-    state.step--;
-    render();
+    animateTransition('back', () => { state.step--; render(); });
+    saveDraft();
   } else {
-    // Go back to mode select
-    state.mode = null;
-    document.body.classList.remove('evening');
-    render();
+    animateTransition('back', () => {
+      state.mode = null;
+      document.body.classList.remove('evening');
+      render();
+    });
+    clearDraft();
   }
 };
 
@@ -813,7 +834,9 @@ window.saveEntry = async function() {
     const result = await res.json();
 
     if (res.ok) {
+      if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
       if (saveBtn) { saveBtn.textContent = 'Saved!'; saveBtn.style.background = 'var(--success)'; }
+      clearDraft();
       setTimeout(() => {
         state.mode = null;
         state.step = 0;
@@ -922,13 +945,57 @@ function setVoiceStatus(key, msg) {
   if (el) el.textContent = msg;
 }
 
+// ============================================================
+//  LOCAL STORAGE DRAFT
+// ============================================================
+function saveDraft() {
+  try {
+    localStorage.setItem('health-draft', JSON.stringify({
+      mode: state.mode, step: state.step, data: state.data, ts: Date.now()
+    }));
+  } catch(e) {}
+}
+
+function clearDraft() {
+  try { localStorage.removeItem('health-draft'); } catch(e) {}
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem('health-draft');
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    // Discard drafts older than 12 hours
+    if (Date.now() - draft.ts > 12 * 60 * 60 * 1000) { clearDraft(); return false; }
+    state.mode = draft.mode;
+    state.step = draft.step;
+    Object.assign(state.data, draft.data);
+    if (state.mode === 'evening') document.body.classList.add('evening');
+    return true;
+  } catch(e) { return false; }
+}
+
+// ============================================================
+//  AUTO-DETECT MORNING / EVENING
+// ============================================================
+function autoDetectMode() {
+  const h = new Date().getHours();
+  if (h < 12) { selectMode('morning'); return true; }
+  if (h >= 17) { selectMode('evening'); return true; }
+  return false;
+}
+
 // ---- PWA Service Worker ----
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 // ---- Init ----
-render();
+if (loadDraft()) {
+  render(); // Resume where you left off
+} else if (!autoDetectMode()) {
+  render(); // Show mode select (12-17h)
+}
 </script>
 </body>
 </html>
