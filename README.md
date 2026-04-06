@@ -24,6 +24,7 @@ A Progressive Web App for daily health check-ins with voice input, Notion integr
 index.html          Main app (UI + logic)
 api/notion.js       Vercel serverless Notion proxy
 api/calendar.js     Vercel serverless Google Calendar proxy
+api/trends.js       Vercel serverless Notion query for trends
 manifest.json       PWA manifest
 sw.js               Service worker
 icon-192.svg        App icon (small)
@@ -92,6 +93,7 @@ icon-512.svg        App icon (large)
 - [x] Phase 5: Polish (slide animations, haptic feedback, auto-detect mode, localStorage drafts)
 - [x] Google Calendar integration (auto-suggest study, sport, screen time from today's events)
 - [x] Apple Health XML import (resting HR, HRV, sleep, steps, active calories, SpO2)
+- [x] Trends dashboard (Chart.js charts, correlation cards, date range picker)
 
 ## Apple Health Import
 
@@ -102,6 +104,20 @@ Upload your Apple Health export XML from the home screen. The parser:
 - Displays metrics on a summary card and saves to Notion
 
 To export from iPhone: Settings > Health > Export All Health Data
+
+## Trends Dashboard
+
+Accessible from the home screen, the Trends page queries your Notion Health Log and displays:
+
+- **Sleep & Recovery** (line chart): Sleep Quality + Energy Level over time
+- **Activity** (bar chart): Study Hours, Sport Duration, Screen Time per day
+- **Biometrics** (dual-axis line chart): Resting HR + HRV over time
+- **Correlations** (comparison cards):
+  - Sleep quality on sport days vs rest days
+  - Energy on low screen time (<2h) vs high (>4h)
+  - HRV on light study (<4h) vs heavy (>6h)
+
+Date range picker: 7 days, 30 days, All time. Loading skeletons during fetch.
 
 ## Google Calendar Keyword Mapping
 

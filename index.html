@@ -9,6 +9,7 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.svg">
 <title>Health Logger</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -336,6 +337,89 @@ body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
 }
 .no-tags { color: var(--text-dim); font-style: italic; }
 
+/* ---- Trends Dashboard ---- */
+.trends {
+  width: 100%; display: flex; flex-direction: column;
+  gap: 16px; flex: 1; overflow-y: auto;
+  padding-bottom: 24px;
+}
+.trends h1 { font-size: 1.5rem; font-weight: 700; text-align: center; }
+
+.trends-range {
+  display: flex; gap: 8px; justify-content: center;
+}
+.range-btn {
+  padding: 8px 16px; border-radius: 100px;
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text-dim); font-size: 0.8rem; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.range-btn.active {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(255,179,71,0.1);
+}
+.range-btn:active { transform: scale(0.95); }
+
+.chart-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; border: 1px solid var(--card-border);
+}
+.chart-card h2 {
+  font-size: 0.85rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.chart-card canvas {
+  width: 100% !important;
+  max-height: 220px;
+}
+
+.corr-grid {
+  display: grid; grid-template-columns: 1fr; gap: 10px;
+}
+.corr-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px; border: 1px solid var(--card-border);
+}
+.corr-card .corr-title {
+  font-size: 0.75rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+.corr-compare {
+  display: flex; align-items: center; justify-content: space-around;
+  gap: 8px;
+}
+.corr-side {
+  text-align: center; flex: 1;
+}
+.corr-val {
+  font-size: 1.6rem; font-weight: 700;
+}
+.corr-val.good { color: var(--success); }
+.corr-val.bad { color: var(--danger); }
+.corr-val.neutral { color: var(--text-dim); }
+.corr-label {
+  font-size: 0.7rem; color: var(--text-dim); margin-top: 2px;
+}
+.corr-vs {
+  font-size: 0.75rem; color: var(--text-dim); font-weight: 600;
+}
+.corr-arrow {
+  font-size: 1.2rem; margin-left: 4px;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--card) 25%, var(--card-border) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skeleton-chart { height: 200px; margin-bottom: 16px; }
+.skeleton-card { height: 80px; margin-bottom: 10px; }
+
 /* ---- Apple Health Import ---- */
 .health-import {
   width: 100%; display: flex; flex-direction: column;
@@ -576,6 +660,7 @@ const $nav = document.getElementById('nav');
 function render() {
   if (!state.mode) { renderModeSelect(); return; }
   if (state.mode === 'health-import') { renderHealthImport(); return; }
+  if (state.mode === 'trends') { renderTrends(); return; }
   const flow = getFlow();
   const step = flow[state.step];
   renderProgress(flow.length, state.step);
@@ -608,11 +693,18 @@ function renderModeSelect() {
           <div class="sub">Sport, Nutrition, Reflection</div>
         </button>
       </div>
-      <button class="mode-btn" onclick="showHealthImport()" style="padding:14px 20px; font-size:0.9rem;">
+      <div class="mode-btns">
+        <button class="mode-btn" onclick="showTrends()" style="padding:14px 16px; font-size:0.9rem;">
+          <span class="icon" style="font-size:1.4rem;">&#128200;</span>
+          Trends
+          <div class="sub">Charts & Insights</div>
+        </button>
+        <button class="mode-btn" onclick="showHealthImport()" style="padding:14px 16px; font-size:0.9rem;">
         <span class="icon" style="font-size:1.4rem;">&#9829;</span>
         Import Health Data
         <div class="sub">Apple Health XML</div>
       </button>
+      </div>
     </div>`;
 }
 
@@ -1112,6 +1204,253 @@ function autoDetectMode() {
   if (h >= 17) { selectMode('evening'); return true; }
   return false;
 }
+
+// ============================================================
+//  TRENDS DASHBOARD
+// ============================================================
+let trendsData = null;
+let trendsRange = 30;
+let trendsCharts = [];
+
+window.showTrends = function() {
+  state.mode = 'trends';
+  trendsData = null;
+  $progress.innerHTML = '';
+  $nav.innerHTML = '';
+  renderTrends();
+  fetchTrends(trendsRange);
+};
+
+function renderTrends() {
+  let html = `<div class="trends">
+    <h1>Trends</h1>
+    <div class="trends-range">
+      <button class="range-btn ${trendsRange===7?'active':''}" onclick="setRange(7)">7 days</button>
+      <button class="range-btn ${trendsRange===30?'active':''}" onclick="setRange(30)">30 days</button>
+      <button class="range-btn ${trendsRange===365?'active':''}" onclick="setRange(365)">All time</button>
+    </div>`;
+
+  if (!trendsData) {
+    // Loading skeleton
+    html += `<div class="skeleton skeleton-chart"></div>
+      <div class="skeleton skeleton-chart"></div>
+      <div class="skeleton skeleton-chart"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>`;
+  } else if (trendsData.length === 0) {
+    html += `<div style="text-align:center;color:var(--text-dim);padding:40px 0;">No entries found for this period.</div>`;
+  } else {
+    html += `<div class="chart-card"><h2>Sleep & Recovery</h2><canvas id="chart-sleep"></canvas></div>`;
+    html += `<div class="chart-card"><h2>Activity</h2><canvas id="chart-activity"></canvas></div>`;
+    html += `<div class="chart-card"><h2>Biometrics</h2><canvas id="chart-bio"></canvas></div>`;
+    html += `<div class="chart-card"><h2>Correlations</h2><div class="corr-grid" id="corr-cards"></div></div>`;
+  }
+
+  html += `<button class="hi-back-btn" onclick="backToHome()">Back</button>`;
+  html += `</div>`;
+  $screen.innerHTML = html;
+
+  if (trendsData && trendsData.length > 0) {
+    setTimeout(() => buildCharts(), 50);
+  }
+}
+
+window.setRange = function(days) {
+  trendsRange = days;
+  trendsData = null;
+  renderTrends();
+  fetchTrends(days);
+};
+
+async function fetchTrends(days) {
+  try {
+    const res = await fetch(`/api/trends?days=${days}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Fetch failed');
+    trendsData = data.entries || [];
+    renderTrends();
+  } catch(err) {
+    trendsData = [];
+    renderTrends();
+    console.error('Trends fetch error:', err);
+  }
+}
+
+function buildCharts() {
+  // Destroy old charts
+  trendsCharts.forEach(c => c.destroy());
+  trendsCharts = [];
+
+  const entries = trendsData;
+  // Merge entries by date (morning + evening = one day)
+  const byDate = {};
+  entries.forEach(e => {
+    if (!e.date) return;
+    const d = e.date.substring(0, 10);
+    if (!byDate[d]) byDate[d] = {};
+    // Merge: later values overwrite, but keep non-null
+    Object.keys(e).forEach(k => {
+      if (k === 'date' || k === 'entryType') return;
+      if (e[k] !== null && e[k] !== undefined) byDate[d][k] = e[k];
+    });
+    byDate[d].date = d;
+    if (e.entryType) byDate[d].entryType = e.entryType;
+  });
+  const days = Object.values(byDate).sort((a,b) => a.date.localeCompare(b.date));
+  const labels = days.map(d => {
+    const dt = new Date(d.date + 'T12:00:00');
+    return dt.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  });
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { labels: { color: '#8A8A8A', boxWidth: 12, padding: 8, font: { size: 11 } } }
+    },
+    scales: {
+      x: { ticks: { color: '#8A8A8A', font: { size: 10 }, maxRotation: 45 }, grid: { color: '#2A2A2A' } },
+      y: { ticks: { color: '#8A8A8A', font: { size: 10 } }, grid: { color: '#2A2A2A' } }
+    }
+  };
+
+  // Chart 1: Sleep & Recovery
+  const c1 = document.getElementById('chart-sleep');
+  if (c1) {
+    trendsCharts.push(new Chart(c1, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Sleep Quality', data: days.map(d => d.sleepQuality), borderColor: '#7B68EE', backgroundColor: 'rgba(123,104,238,0.1)', tension: 0.3, fill: true, pointRadius: 3 },
+          { label: 'Energy Level', data: days.map(d => d.energyLevel), borderColor: '#FFB347', backgroundColor: 'rgba(255,179,71,0.1)', tension: 0.3, fill: true, pointRadius: 3 },
+        ]
+      },
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 10 } } }
+    }));
+  }
+
+  // Chart 2: Activity (grouped bar)
+  const c2 = document.getElementById('chart-activity');
+  if (c2) {
+    trendsCharts.push(new Chart(c2, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Study (h)', data: days.map(d => d.studyHours || 0), backgroundColor: '#7B68EE' },
+          { label: 'Sport (h)', data: days.map(d => d.sportDuration ? Math.round(d.sportDuration/6)/10 : 0), backgroundColor: '#4ADE80' },
+          { label: 'Screen (h)', data: days.map(d => d.screenTime || 0), backgroundColor: '#F87171' },
+        ]
+      },
+      options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0 } } }
+    }));
+  }
+
+  // Chart 3: Biometrics (dual Y-axis)
+  const c3 = document.getElementById('chart-bio');
+  if (c3) {
+    const hrData = days.map(d => d.restingHR);
+    const hrvData = days.map(d => d.hrv);
+    const hasData = hrData.some(v => v !== null) || hrvData.some(v => v !== null);
+
+    if (hasData) {
+      trendsCharts.push(new Chart(c3, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Resting HR (bpm)', data: hrData, borderColor: '#F87171', backgroundColor: 'rgba(248,113,113,0.1)', tension: 0.3, yAxisID: 'y', pointRadius: 3, spanGaps: true },
+            { label: 'HRV (ms)', data: hrvData, borderColor: '#4ADE80', backgroundColor: 'rgba(74,222,128,0.1)', tension: 0.3, yAxisID: 'y1', pointRadius: 3, spanGaps: true },
+          ]
+        },
+        options: {
+          ...chartDefaults,
+          scales: {
+            x: chartDefaults.scales.x,
+            y:  { type: 'linear', position: 'left', ticks: { color: '#F87171', font: { size: 10 } }, grid: { color: '#2A2A2A' }, title: { display: true, text: 'HR', color: '#F87171', font: { size: 10 } } },
+            y1: { type: 'linear', position: 'right', ticks: { color: '#4ADE80', font: { size: 10 } }, grid: { drawOnChartArea: false }, title: { display: true, text: 'HRV', color: '#4ADE80', font: { size: 10 } } },
+          }
+        }
+      }));
+    } else {
+      c3.parentElement.innerHTML += '<p style="color:var(--text-dim);text-align:center;font-size:0.85rem;margin-top:-8px;">No biometric data yet. Import Apple Health data to see trends.</p>';
+      c3.style.display = 'none';
+    }
+  }
+
+  // Chart 4: Correlations
+  const corrEl = document.getElementById('corr-cards');
+  if (corrEl) corrEl.innerHTML = buildCorrelations(days);
+}
+
+function buildCorrelations(days) {
+  let html = '';
+
+  // 1. Sleep quality on sport days vs non-sport days
+  const sportDays = days.filter(d => d.sportDuration > 0 && d.sleepQuality != null);
+  const noSportDays = days.filter(d => (!d.sportDuration || d.sportDuration === 0) && d.sleepQuality != null);
+  html += corrCard(
+    'Sleep on Sport Days vs Rest Days',
+    sportDays.length ? avgArr(sportDays.map(d => d.sleepQuality)) : null,
+    `Sport (n=${sportDays.length})`,
+    noSportDays.length ? avgArr(noSportDays.map(d => d.sleepQuality)) : null,
+    `Rest (n=${noSportDays.length})`,
+    '/10'
+  );
+
+  // 2. Energy on low vs high screen time
+  const lowScreen = days.filter(d => d.screenTime != null && d.screenTime < 2 && d.energyLevel != null);
+  const highScreen = days.filter(d => d.screenTime != null && d.screenTime >= 4 && d.energyLevel != null);
+  html += corrCard(
+    'Energy: Low Screen (<2h) vs High (>4h)',
+    lowScreen.length ? avgArr(lowScreen.map(d => d.energyLevel)) : null,
+    `<2h (n=${lowScreen.length})`,
+    highScreen.length ? avgArr(highScreen.map(d => d.energyLevel)) : null,
+    `>4h (n=${highScreen.length})`,
+    '/10'
+  );
+
+  // 3. HRV on light vs heavy study days
+  const lightStudy = days.filter(d => d.hrv != null && (d.studyHours == null || d.studyHours < 4));
+  const heavyStudy = days.filter(d => d.hrv != null && d.studyHours != null && d.studyHours >= 6);
+  html += corrCard(
+    'HRV: Light Study (<4h) vs Heavy (>6h)',
+    lightStudy.length ? avgArr(lightStudy.map(d => d.hrv)) : null,
+    `<4h (n=${lightStudy.length})`,
+    heavyStudy.length ? avgArr(heavyStudy.map(d => d.hrv)) : null,
+    `>6h (n=${heavyStudy.length})`,
+    ' ms'
+  );
+
+  return html;
+}
+
+function corrCard(title, valA, labelA, valB, labelB, unit) {
+  const hasA = valA !== null;
+  const hasB = valB !== null;
+  let classA = 'neutral', classB = 'neutral';
+  if (hasA && hasB) {
+    if (valA > valB) { classA = 'good'; classB = 'bad'; }
+    else if (valB > valA) { classB = 'good'; classA = 'bad'; }
+  }
+  const fmtA = hasA ? (Math.round(valA * 10) / 10) : '—';
+  const fmtB = hasB ? (Math.round(valB * 10) / 10) : '—';
+  const arrow = (hasA && hasB && valA !== valB) ?
+    (valA > valB ? '<span class="corr-arrow" style="color:var(--success)">&#9650;</span>' : '<span class="corr-arrow" style="color:var(--danger)">&#9660;</span>') : '';
+
+  return `<div class="corr-card">
+    <div class="corr-title">${title}</div>
+    <div class="corr-compare">
+      <div class="corr-side"><div class="corr-val ${classA}">${fmtA}${hasA?unit:''}</div><div class="corr-label">${labelA}</div></div>
+      <div class="corr-vs">vs</div>
+      <div class="corr-side"><div class="corr-val ${classB}">${fmtB}${hasB?unit:''}</div><div class="corr-label">${labelB}</div></div>
+    </div>
+  </div>`;
+}
+
+function avgArr(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
 
 // ============================================================
 //  APPLE HEALTH IMPORT
