@@ -336,6 +336,37 @@ body.evening .sport-chip.selected { background: rgba(123,104,238,0.15); }
 }
 .no-tags { color: var(--text-dim); font-style: italic; }
 
+/* ---- Calendar Sync ---- */
+.cal-sync-bar {
+  width: 100%; margin-bottom: 20px; text-align: center;
+}
+.cal-sync-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px; border-radius: 100px;
+  background: var(--card); border: 2px solid var(--card-border);
+  color: var(--text); font-size: 0.9rem; font-family: inherit;
+  cursor: pointer; transition: all 0.2s;
+}
+.cal-sync-btn:active { transform: scale(0.97); }
+.cal-sync-btn.syncing {
+  border-color: var(--accent); color: var(--accent);
+  pointer-events: none;
+}
+.cal-sync-btn.synced {
+  border-color: var(--success); color: var(--success);
+}
+.cal-sync-btn.error {
+  border-color: var(--danger); color: var(--danger);
+}
+.cal-sync-btn svg { width: 18px; height: 18px; fill: currentColor; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.cal-sync-btn.syncing svg { animation: spin 1s linear infinite; }
+.cal-suggestion {
+  display: inline-block; margin-top: 6px; padding: 4px 10px;
+  border-radius: 8px; background: rgba(74,222,128,0.12);
+  color: var(--success); font-size: 0.75rem;
+}
+
 /* ---- Transitions ---- */
 .screen-area {
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -534,7 +565,12 @@ function renderStep(step) {
   if (step.type === 'sport')   { renderSport(step); return; }
   if (step.type === 'combined') { renderCombined(step); return; }
 
-  let inner = `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div>`;
+  let inner = '';
+  // Show calendar sync on first evening screen
+  if (state.mode === 'evening' && state.step === 0) {
+    inner += renderCalSyncBar();
+  }
+  inner += `<div class="q-label">${step.label.replace(/\n/g,'<br>')}</div>`;
   inner += renderInput(step);
   $screen.innerHTML = inner;
   bindInputEvents(step);
@@ -984,6 +1020,153 @@ function autoDetectMode() {
   if (h >= 17) { selectMode('evening'); return true; }
   return false;
 }
+
+// ============================================================
+//  GOOGLE CALENDAR SYNC
+// ============================================================
+const CAL_KEYWORDS = {
+  study: ['study','lernen','thesis','uni','library','studium','vorlesung','seminar','hausarbeit'],
+  sport: ['volleyball','padel','gym','gymnastics','sport','training','run','walk','swim','laufen','schwimmen','turnen','fitnessstudio'],
+  screen: ['instagram','netflix','youtube','gaming','tiktok','twitch','tv','fernsehen']
+};
+
+state.calSynced = false;
+
+function matchCategory(title) {
+  const t = title.toLowerCase();
+  for (const [cat, words] of Object.entries(CAL_KEYWORDS)) {
+    if (words.some(w => t.includes(w))) return cat;
+  }
+  return null;
+}
+
+window.syncCalendar = async function() {
+  const btn = document.getElementById('cal-sync-btn');
+  if (!btn) return;
+  btn.classList.remove('error','synced');
+  btn.classList.add('syncing');
+  btn.querySelector('.cal-label').textContent = 'Syncing...';
+
+  try {
+    const calId = prompt('Enter your Gmail address (Calendar ID):');
+    if (!calId) { btn.classList.remove('syncing'); btn.querySelector('.cal-label').textContent = 'Sync Calendar'; return; }
+
+    // Store for future syncs
+    try { localStorage.setItem('health-cal-id', calId); } catch(e) {}
+
+    const res = await fetch(`/api/calendar?calendarId=${encodeURIComponent(calId)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+
+    // Categorize events
+    let studyMin = 0, sportMin = 0, screenMin = 0;
+    const sportEvents = {};
+
+    data.events.forEach(ev => {
+      const cat = matchCategory(ev.summary);
+      if (cat === 'study') studyMin += ev.durationMin;
+      if (cat === 'screen') screenMin += ev.durationMin;
+      if (cat === 'sport') {
+        sportMin += ev.durationMin;
+        // Try to match sport type
+        const t = ev.summary.toLowerCase();
+        const sportOpts = ['Volleyball','Gym','Padel','Run','Walk','Gymnastics'];
+        for (const s of sportOpts) {
+          if (t.includes(s.toLowerCase())) {
+            if (!state.data.sportTypes.includes(s)) state.data.sportTypes.push(s);
+            state.data.sportDurations[s] = (state.data.sportDurations[s] || 0) + ev.durationMin;
+          }
+        }
+      }
+    });
+
+    // Pre-fill values (convert minutes to hours where needed)
+    if (studyMin > 0) state.data.studyHours = Math.round(studyMin / 30) / 2; // round to 0.5h
+    if (screenMin > 0) state.data.screenTime = Math.round(screenMin / 30) / 2;
+    // sportDurations already set per-sport above, but set a generic if no specific match
+    if (sportMin > 0 && state.data.sportTypes.length === 0) {
+      state.data.sportTypes.push('Other');
+      state.data.sportDurations['Other'] = sportMin;
+    }
+
+    state.calSynced = true;
+    btn.classList.remove('syncing');
+    btn.classList.add('synced');
+    btn.querySelector('.cal-label').textContent = `Synced (${data.events.length} events)`;
+
+    // Re-render current step to show updated values
+    render();
+  } catch(err) {
+    btn.classList.remove('syncing');
+    btn.classList.add('error');
+    btn.querySelector('.cal-label').textContent = 'Sync failed — retry';
+    console.error('Calendar sync error:', err);
+  }
+};
+
+function renderCalSyncBar() {
+  const savedId = (() => { try { return localStorage.getItem('health-cal-id'); } catch(e) { return null; } })();
+  return `<div class="cal-sync-bar">
+    <button class="cal-sync-btn ${state.calSynced?'synced':''}" id="cal-sync-btn" onclick="${savedId ? 'quickSyncCalendar()' : 'syncCalendar()'}">
+      <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
+      <span class="cal-label">${state.calSynced ? 'Synced' : 'Sync Calendar'}</span>
+    </button>
+    ${state.calSynced ? '<div class="cal-suggestion">Values pre-filled from calendar</div>' : ''}
+  </div>`;
+}
+
+window.quickSyncCalendar = async function() {
+  const calId = (() => { try { return localStorage.getItem('health-cal-id'); } catch(e) { return null; } })();
+  if (!calId) { syncCalendar(); return; }
+
+  const btn = document.getElementById('cal-sync-btn');
+  if (!btn) return;
+  btn.classList.remove('error','synced');
+  btn.classList.add('syncing');
+  btn.querySelector('.cal-label').textContent = 'Syncing...';
+
+  try {
+    const res = await fetch(`/api/calendar?calendarId=${encodeURIComponent(calId)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+
+    let studyMin = 0, sportMin = 0, screenMin = 0;
+    data.events.forEach(ev => {
+      const cat = matchCategory(ev.summary);
+      if (cat === 'study') studyMin += ev.durationMin;
+      if (cat === 'screen') screenMin += ev.durationMin;
+      if (cat === 'sport') {
+        sportMin += ev.durationMin;
+        const t = ev.summary.toLowerCase();
+        const sportOpts = ['Volleyball','Gym','Padel','Run','Walk','Gymnastics'];
+        for (const s of sportOpts) {
+          if (t.includes(s.toLowerCase())) {
+            if (!state.data.sportTypes.includes(s)) state.data.sportTypes.push(s);
+            state.data.sportDurations[s] = (state.data.sportDurations[s] || 0) + ev.durationMin;
+          }
+        }
+      }
+    });
+
+    if (studyMin > 0) state.data.studyHours = Math.round(studyMin / 30) / 2;
+    if (screenMin > 0) state.data.screenTime = Math.round(screenMin / 30) / 2;
+    if (sportMin > 0 && state.data.sportTypes.length === 0) {
+      state.data.sportTypes.push('Other');
+      state.data.sportDurations['Other'] = sportMin;
+    }
+
+    state.calSynced = true;
+    btn.classList.remove('syncing');
+    btn.classList.add('synced');
+    btn.querySelector('.cal-label').textContent = `Synced (${data.events.length} events)`;
+    render();
+  } catch(err) {
+    btn.classList.remove('syncing');
+    btn.classList.add('error');
+    btn.querySelector('.cal-label').textContent = 'Sync failed — retry';
+    console.error('Calendar sync error:', err);
+  }
+};
 
 // ---- PWA Service Worker ----
 if ('serviceWorker' in navigator) {
