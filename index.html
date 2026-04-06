@@ -45,11 +45,35 @@ html, body {
   padding: 0 20px env(safe-area-inset-bottom, 0);
 }
 
+/* ---- Top bar ---- */
+.top-bar {
+  display: flex; align-items: center; justify-content: center;
+  position: relative; min-height: 40px;
+  padding: 12px 0 4px;
+}
+.lang-toggle {
+  position: absolute; right: 0; top: 12px;
+  display: flex; gap: 0; border: none; background: none;
+  padding: 0; cursor: pointer; font-family: inherit;
+}
+.lang-opt {
+  padding: 4px 8px; font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.5px; color: var(--text-dim);
+  background: var(--card); border: 1px solid var(--card-border);
+  transition: all 0.2s;
+}
+.lang-opt:first-child { border-radius: 6px 0 0 6px; border-right: none; }
+.lang-opt:last-child { border-radius: 0 6px 6px 0; }
+.lang-opt.active {
+  background: var(--accent); color: var(--bg);
+  border-color: var(--accent);
+}
+
 /* ---- Progress dots ---- */
 .progress {
   display: flex; justify-content: center; gap: 8px;
-  padding: 16px 0 8px;
-  min-height: 40px;
+  padding: 4px 0;
+  min-height: 28px;
 }
 .progress .dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -557,7 +581,13 @@ body.evening .bevel-section h2 { color: var(--accent); }
 </head>
 <body>
 <div id="app">
-  <div class="progress" id="progress"></div>
+  <div class="top-bar">
+    <div class="progress" id="progress"></div>
+    <button class="lang-toggle" id="lang-toggle" onclick="toggleLang()">
+      <span class="lang-opt" id="lang-de">DE</span>
+      <span class="lang-opt active" id="lang-en">EN</span>
+    </button>
+  </div>
   <div class="screen-area" id="screen"></div>
   <div class="nav" id="nav"></div>
 </div>
@@ -589,39 +619,135 @@ const state = {
 };
 
 // ============================================================
+//  TRANSLATIONS
+// ============================================================
+let currentLang = (() => { try { return localStorage.getItem('health-lang') || 'en'; } catch(e) { return 'en'; } })();
+
+const T = {
+  // Greetings
+  greeting_morning:   { en: 'Good Morning!', de: 'Guten Morgen!' },
+  greeting_afternoon: { en: 'Good Afternoon!', de: 'Guten Tag!' },
+  greeting_evening:   { en: 'Good Evening!', de: 'Guten Abend!' },
+  // Home screen
+  morning_checkin:    { en: 'Morning Check-in', de: 'Morgen Check-in' },
+  morning_sub:        { en: 'Sleep, Energy, Intention', de: 'Schlaf, Energie, Intention' },
+  evening_review:     { en: 'Evening Review', de: 'Abend Review' },
+  evening_sub:        { en: 'Sport, Nutrition, Reflection', de: 'Sport, Essen, Reflexion' },
+  trends:             { en: 'Trends', de: 'Trends' },
+  trends_sub:         { en: 'Charts & Insights', de: 'Diagramme & Einblicke' },
+  import_health:      { en: 'Import Health Data', de: 'Gesundheitsdaten importieren' },
+  import_health_sub:  { en: 'Apple Health XML', de: 'Apple Health XML' },
+  // Morning flow
+  q_sleep:            { en: 'Good Morning.\nHow did you sleep?', de: 'Guten Morgen.\nWie hast du geschlafen?' },
+  q_energy_morning:   { en: 'How is your energy level right now?', de: 'Wie ist dein Energielevel?' },
+  q_stress:           { en: 'Stress Level?', de: 'Stress Level?' },
+  q_intention:        { en: 'What do you want to accomplish today?', de: 'Was willst du heute schaffen?' },
+  ph_intention:       { en: 'Your intention...', de: 'Deine Intention...' },
+  // Evening flow
+  q_energy_evening:   { en: 'How was your day overall?', de: 'Wie war dein Tag insgesamt?' },
+  q_sport:            { en: 'Any sport today?', de: 'Sport heute?' },
+  q_study_work:       { en: 'Study and Work', de: 'Lernen und Arbeit' },
+  sub_study:          { en: 'Study Hours', de: 'Lernstunden' },
+  sub_work:           { en: 'Work Hours', de: 'Arbeitsstunden' },
+  q_screen:           { en: 'Screen Time', de: 'Bildschirmzeit' },
+  sub_unproductive:   { en: 'Unproductive hours', de: 'Unproduktive Stunden' },
+  sub_social_media:   { en: 'Social Media', de: 'Social Media' },
+  q_caffeine:         { en: 'How much caffeine today?', de: 'Wie viel Koffein heute?' },
+  q_nutrition:        { en: 'Food and Hydration?', de: 'Essen und Trinken?' },
+  sub_calories:       { en: 'Calories', de: 'Kalorien' },
+  sub_water:          { en: 'Water', de: 'Wasser' },
+  q_social:           { en: 'Social contact today?', de: 'Sozialer Kontakt heute?' },
+  q_reflection:       { en: 'Free Reflection\nHow was your day?', de: 'Freie Reflexion\nWie war dein Tag?' },
+  ph_reflection:      { en: 'Your thoughts...', de: 'Deine Gedanken...' },
+  // Sport
+  sub_sport_type:     { en: 'Sport Type', de: 'Sportart' },
+  sub_duration:       { en: 'Duration (minutes)', de: 'Dauer (Minuten)' },
+  // Nav
+  back:               { en: 'Back', de: 'Zurueck' },
+  next:               { en: 'Next', de: 'Weiter' },
+  save:               { en: 'Save', de: 'Speichern' },
+  saving:             { en: 'Saving...', de: 'Speichert...' },
+  saved:              { en: 'Saved!', de: 'Gespeichert!' },
+  error_retry:        { en: 'Error - Retry', de: 'Fehler - Nochmal' },
+  // Summary
+  no_tags:            { en: 'No tags', de: 'Keine Tags' },
+  sum_sleep:          { en: 'Sleep Quality', de: 'Schlafqualitaet' },
+  sum_energy:         { en: 'Energy Level', de: 'Energielevel' },
+  sum_stress:         { en: 'Stress', de: 'Stress' },
+  sum_intention:      { en: 'Intention', de: 'Intention' },
+  sum_sport:          { en: 'Sport', de: 'Sport' },
+  sum_study:          { en: 'Study', de: 'Lernen' },
+  sum_work:           { en: 'Work', de: 'Arbeit' },
+  sum_screen:         { en: 'Screen Time', de: 'Bildschirmzeit' },
+  sum_caffeine:       { en: 'Caffeine', de: 'Koffein' },
+  sum_calories:       { en: 'Calories', de: 'Kalorien' },
+  sum_water:          { en: 'Water', de: 'Wasser' },
+  sum_social:         { en: 'Social Contact', de: 'Sozialer Kontakt' },
+  sum_reflection:     { en: 'Reflection', de: 'Reflexion' },
+  // Voice
+  tap_to_speak:       { en: 'Tap to speak', de: 'Tippen zum Sprechen' },
+  tap_to_stop:        { en: 'Tap to stop', de: 'Tippen zum Stoppen' },
+  listening:          { en: 'Listening...', de: 'Hoert zu...' },
+  no_speech:          { en: 'No speech detected. Try again.', de: 'Keine Sprache erkannt. Nochmal.' },
+  voice_unsupported:  { en: 'Voice not supported in this browser', de: 'Spracheingabe nicht unterstuetzt' },
+  // Calendar sync
+  sync_calendar:      { en: 'Sync Calendar', de: 'Kalender synchronisieren' },
+  syncing:            { en: 'Syncing...', de: 'Synchronisiert...' },
+  synced:             { en: 'Synced', de: 'Synchronisiert' },
+  sync_failed:        { en: 'Sync failed — retry', de: 'Sync fehlgeschlagen — nochmal' },
+  cal_prefilled:      { en: 'Values pre-filled from calendar', de: 'Werte aus Kalender vorausgefuellt' },
+  // Health import
+  import_title:       { en: 'Import Health Data', de: 'Gesundheitsdaten importieren' },
+  import_sub:         { en: 'Upload your Apple Health export (export.xml)', de: 'Apple Health Export hochladen (export.xml)' },
+  tap_to_select:      { en: 'Tap to select export.xml', de: 'Tippen um export.xml auszuwaehlen' },
+  parsing:            { en: 'Parsing...', de: 'Wird verarbeitet...' },
+  save_to_notion:     { en: 'Save to Notion', de: 'In Notion speichern' },
+  // Trends
+  trends_title:       { en: 'Trends', de: 'Trends' },
+  sleep_recovery:     { en: 'Sleep & Recovery', de: 'Schlaf & Erholung' },
+  activity:           { en: 'Activity', de: 'Aktivitaet' },
+  biometrics:         { en: 'Biometrics', de: 'Biometrie' },
+  correlations:       { en: 'Correlations', de: 'Korrelationen' },
+  no_entries:         { en: 'No entries found for this period.', de: 'Keine Eintraege fuer diesen Zeitraum.' },
+  no_bio_data:        { en: 'No biometric data yet. Import Apple Health data to see trends.', de: 'Noch keine Biodaten. Apple Health importieren.' },
+};
+
+function t(key) { return (T[key] && T[key][currentLang]) || T[key]?.en || key; }
+
+// ============================================================
 //  FLOW DEFINITIONS
 // ============================================================
-const morningFlow = [
-  { id: 'sleepQuality',  label: 'Good Morning.\nHow did you sleep?',        type: 'slider', min: 1, max: 10, key: 'sleepQuality' },
-  { id: 'energyLevel',   label: 'How is your energy level right now?',    type: 'slider', min: 1, max: 10, key: 'energyLevel' },
-  { id: 'stressLevel',   label: 'Stress Level?',                          type: 'slider', min: 1, max: 10, key: 'stressLevel' },
-  { id: 'intention',     label: 'What do you want to accomplish today?',   type: 'text',   key: 'intention', placeholder: 'Your intention...' },
+function getMorningFlow() { return [
+  { id: 'sleepQuality',  label: t('q_sleep'),           type: 'slider', min: 1, max: 10, key: 'sleepQuality' },
+  { id: 'energyLevel',   label: t('q_energy_morning'),  type: 'slider', min: 1, max: 10, key: 'energyLevel' },
+  { id: 'stressLevel',   label: t('q_stress'),          type: 'slider', min: 1, max: 10, key: 'stressLevel' },
+  { id: 'intention',     label: t('q_intention'),       type: 'text',   key: 'intention', placeholder: t('ph_intention') },
   { id: 'summary',       type: 'summary' },
-];
+]; }
 
-const eveningFlow = [
-  { id: 'energyLevel',   label: 'How was your day overall?',               type: 'slider', min: 1, max: 10, key: 'energyLevel' },
-  { id: 'sport',         label: 'Any sport today?',                       type: 'sport', options: ['Volleyball','Gym','Padel','Run','Walk','Gymnastics','Other'] },
-  { id: 'studyWork',     label: 'Study and Work',                          type: 'combined', sections: [
-    { sub: 'Study Hours', type: 'number', key: 'studyHours', unit: 'h', step: 0.5, min: 0, max: 16 },
-    { sub: 'Work Hours', type: 'number', key: 'workHours', unit: 'h', step: 0.5, min: 0, max: 16 },
+function getEveningFlow() { return [
+  { id: 'energyLevel',   label: t('q_energy_evening'),  type: 'slider', min: 1, max: 10, key: 'energyLevel' },
+  { id: 'sport',         label: t('q_sport'),           type: 'sport', options: ['Volleyball','Gym','Padel','Run','Walk','Gymnastics','Other'] },
+  { id: 'studyWork',     label: t('q_study_work'),      type: 'combined', sections: [
+    { sub: t('sub_study'), type: 'number', key: 'studyHours', unit: 'h', step: 0.5, min: 0, max: 16 },
+    { sub: t('sub_work'), type: 'number', key: 'workHours', unit: 'h', step: 0.5, min: 0, max: 16 },
   ]},
-  { id: 'screenSocial',  label: 'Screen Time',                            type: 'combined', sections: [
-    { sub: 'Unproductive hours', type: 'number', key: 'screenTime', unit: 'h', step: 0.5, min: 0, max: 16 },
-    { sub: 'Social Media', type: 'number', key: 'socialMedia', unit: 'h', step: 0.5, min: 0, max: 16 },
+  { id: 'screenSocial',  label: t('q_screen'),          type: 'combined', sections: [
+    { sub: t('sub_unproductive'), type: 'number', key: 'screenTime', unit: 'h', step: 0.5, min: 0, max: 16 },
+    { sub: t('sub_social_media'), type: 'number', key: 'socialMedia', unit: 'h', step: 0.5, min: 0, max: 16 },
   ]},
-  { id: 'caffeine',      label: 'How much caffeine today?',                type: 'typednum', key: 'caffeineMg', unit: 'mg', min: 0, max: 1000 },
-  { id: 'nutrition',     label: 'Food and Hydration?',                     type: 'combined', sections: [
-    { sub: 'Calories', type: 'typednum', key: 'mealsKcal', unit: 'kcal', min: 0, max: 10000 },
-    { sub: 'Water', type: 'typednum', key: 'hydrationL', unit: 'liters', min: 0, max: 10 },
+  { id: 'caffeine',      label: t('q_caffeine'),        type: 'typednum', key: 'caffeineMg', unit: 'mg', min: 0, max: 1000 },
+  { id: 'nutrition',     label: t('q_nutrition'),       type: 'combined', sections: [
+    { sub: t('sub_calories'), type: 'typednum', key: 'mealsKcal', unit: 'kcal', min: 0, max: 10000 },
+    { sub: t('sub_water'), type: 'typednum', key: 'hydrationL', unit: 'liters', min: 0, max: 10 },
   ]},
-  { id: 'social',        label: 'Social contact today?',                   type: 'select', key: 'socialContact', options: ['None','Light','Moderate','Rich'] },
-  { id: 'reflection',    label: 'Free Reflection\nHow was your day?',     type: 'text', key: 'reflection', placeholder: 'Your thoughts...' },
+  { id: 'social',        label: t('q_social'),          type: 'select', key: 'socialContact', options: ['None','Light','Moderate','Rich'] },
+  { id: 'reflection',    label: t('q_reflection'),      type: 'text', key: 'reflection', placeholder: t('ph_reflection') },
   { id: 'summary',       type: 'summary' },
-];
+]; }
 
 function getFlow() {
-  return state.mode === 'morning' ? morningFlow : eveningFlow;
+  return state.mode === 'morning' ? getMorningFlow() : getEveningFlow();
 }
 
 // ============================================================
@@ -684,25 +810,25 @@ function renderModeSelect() {
       <div class="mode-btns">
         <button class="mode-btn" onclick="selectMode('morning')" ${suggestion==='morning'?'style="border-color:var(--morning)"':''}>
           <span class="icon">&#9728;&#65039;</span>
-          Morning Check-in
-          <div class="sub">Sleep, Energy, Intention</div>
+          ${t('morning_checkin')}
+          <div class="sub">${t('morning_sub')}</div>
         </button>
         <button class="mode-btn" onclick="selectMode('evening')" ${suggestion==='evening'?'style="border-color:#7B68EE"':''}>
           <span class="icon">&#9789;</span>
-          Evening Review
-          <div class="sub">Sport, Nutrition, Reflection</div>
+          ${t('evening_review')}
+          <div class="sub">${t('evening_sub')}</div>
         </button>
       </div>
       <div class="mode-btns">
         <button class="mode-btn" onclick="showTrends()" style="padding:14px 16px; font-size:0.9rem;">
           <span class="icon" style="font-size:1.4rem;">&#128200;</span>
-          Trends
-          <div class="sub">Charts & Insights</div>
+          ${t('trends')}
+          <div class="sub">${t('trends_sub')}</div>
         </button>
         <button class="mode-btn" onclick="showHealthImport()" style="padding:14px 16px; font-size:0.9rem;">
         <span class="icon" style="font-size:1.4rem;">&#9829;</span>
-        Import Health Data
-        <div class="sub">Apple Health XML</div>
+        ${t('import_health')}
+        <div class="sub">${t('import_health_sub')}</div>
       </button>
       </div>
     </div>`;
@@ -710,9 +836,9 @@ function renderModeSelect() {
 
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good Morning!';
-  if (h < 17) return 'Good Afternoon!';
-  return 'Good Evening!';
+  if (h < 12) return t('greeting_morning');
+  if (h < 17) return t('greeting_afternoon');
+  return t('greeting_evening');
 }
 
 function selectMode(mode) {
@@ -734,11 +860,11 @@ function renderNav(total, current, isSummary) {
   const isFirst = current === 0;
   const isLast = current === total - 1;
   let html = '';
-  html += `<button class="btn-back" onclick="goBack()">${isFirst ? 'Back' : 'Back'}</button>`;
+  html += `<button class="btn-back" onclick="goBack()">${t('back')}</button>`;
   if (isSummary) {
-    html += `<button class="btn-save" onclick="saveEntry()">Save</button>`;
+    html += `<button class="btn-save" onclick="saveEntry()">${t('save')}</button>`;
   } else {
-    html += `<button class="btn-next" onclick="goNext()">Next</button>`;
+    html += `<button class="btn-next" onclick="goNext()">${t('next')}</button>`;
   }
   $nav.innerHTML = html;
 }
@@ -842,7 +968,7 @@ function renderInput(s) {
         <textarea class="text-input" data-key="${s.key}" placeholder="${s.placeholder||''}">${val}</textarea>
         <button class="mic-btn" data-key="${s.key}" onclick="toggleVoice('${s.key}')">
           <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm-1-9a1 1 0 1 1 2 0v6a1 1 0 1 1-2 0V5zm6 6a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.93V21h2v-3.07A7 7 0 0 0 19 11h-2z"/></svg>
-          <span class="mic-label">Tap to speak</span>
+          <span class="mic-label">${t('tap_to_speak')}</span>
         </button>
         <div class="voice-status" id="voice-status-${s.key}"></div>
       </div>`;
@@ -926,29 +1052,29 @@ function renderSummary() {
   html += `<div class="bevel-section">
     <h2>Bevel Tags</h2>
     <div class="bevel-tags">${
-      tags.length ? tags.map(t => `<span class="bevel-tag">${t}</span>`).join('') : '<span class="no-tags">No tags</span>'
+      tags.length ? tags.map(tg => `<span class="bevel-tag">${tg}</span>`).join('') : `<span class="no-tags">${t('no_tags')}</span>`
     }</div>
   </div>`;
 
   if (state.mode === 'morning') {
-    html += summaryCard('Sleep Quality', d.sleepQuality + ' / 10');
-    html += summaryCard('Energy Level', d.energyLevel + ' / 10');
-    html += summaryCard('Stress', d.stressLevel + ' / 10');
-    if (d.intention) html += summaryCard('Intention', d.intention);
+    html += summaryCard(t('sum_sleep'), d.sleepQuality + ' / 10');
+    html += summaryCard(t('sum_energy'), d.energyLevel + ' / 10');
+    html += summaryCard(t('sum_stress'), d.stressLevel + ' / 10');
+    if (d.intention) html += summaryCard(t('sum_intention'), d.intention);
   } else {
-    html += summaryCard('Energy Level', d.energyLevel + ' / 10');
+    html += summaryCard(t('sum_energy'), d.energyLevel + ' / 10');
     if (d.sportTypes.length) {
       const sportDetail = d.sportTypes.map(s => s + ' (' + (d.sportDurations[s]||0) + ' min)').join(', ');
-      html += summaryCard('Sport', sportDetail);
+      html += summaryCard(t('sum_sport'), sportDetail);
     }
-    html += summaryCard('Study', d.studyHours + ' h');
-    html += summaryCard('Work', d.workHours + ' h');
-    html += summaryCard('Screen Time', d.screenTime + ' h (Social Media: ' + d.socialMedia + ' h)');
-    html += summaryCard('Caffeine', d.caffeineMg + ' mg');
-    html += summaryCard('Calories', d.mealsKcal + ' kcal');
-    html += summaryCard('Water', d.hydrationL + ' L');
-    html += summaryCard('Social Contact', d.socialContact);
-    if (d.reflection) html += summaryCard('Reflection', d.reflection);
+    html += summaryCard(t('sum_study'), d.studyHours + ' h');
+    html += summaryCard(t('sum_work'), d.workHours + ' h');
+    html += summaryCard(t('sum_screen'), d.screenTime + ' h (Social Media: ' + d.socialMedia + ' h)');
+    html += summaryCard(t('sum_caffeine'), d.caffeineMg + ' mg');
+    html += summaryCard(t('sum_calories'), d.mealsKcal + ' kcal');
+    html += summaryCard(t('sum_water'), d.hydrationL + ' L');
+    html += summaryCard(t('sum_social'), d.socialContact);
+    if (d.reflection) html += summaryCard(t('sum_reflection'), d.reflection);
   }
   html += '</div>';
   $screen.innerHTML = html;
@@ -1043,7 +1169,7 @@ window.saveEntry = async function() {
 
   // Update UI
   const saveBtn = document.querySelector('.btn-save');
-  if (saveBtn) { saveBtn.textContent = 'Saving...'; saveBtn.disabled = true; }
+  if (saveBtn) { saveBtn.textContent = t('saving'); saveBtn.disabled = true; }
 
   try {
     const res = await fetch('/api/notion', {
@@ -1055,7 +1181,7 @@ window.saveEntry = async function() {
 
     if (res.ok) {
       if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-      if (saveBtn) { saveBtn.textContent = 'Saved!'; saveBtn.style.background = 'var(--success)'; }
+      if (saveBtn) { saveBtn.textContent = t('saved'); saveBtn.style.background = 'var(--success)'; }
       clearDraft();
       setTimeout(() => {
         state.mode = null;
@@ -1068,7 +1194,7 @@ window.saveEntry = async function() {
       throw new Error(result.message || 'Failed to save');
     }
   } catch (err) {
-    if (saveBtn) { saveBtn.textContent = 'Error - Retry'; saveBtn.disabled = false; saveBtn.style.background = 'var(--danger)'; }
+    if (saveBtn) { saveBtn.textContent = t('error_retry'); saveBtn.disabled = false; saveBtn.style.background = 'var(--danger)'; }
     console.error('Notion save error:', err);
   }
 };
@@ -1100,12 +1226,12 @@ window.toggleVoice = function(key) {
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    setVoiceStatus(key, 'Voice not supported in this browser');
+    setVoiceStatus(key, t('voice_unsupported'));
     return;
   }
 
   const recognition = new SpeechRecognition();
-  recognition.lang = 'de-DE';
+  recognition.lang = currentLang === 'de' ? 'de-DE' : 'en-US';
   recognition.interimResults = true;
   recognition.continuous = true;
   recognition.maxAlternatives = 1;
@@ -1117,8 +1243,8 @@ window.toggleVoice = function(key) {
   const ta = document.querySelector(`textarea[data-key="${key}"]`);
   const baseText = ta ? ta.value : '';
 
-  if (btn) { btn.classList.add('recording'); btn.querySelector('.mic-label').textContent = 'Tap to stop'; }
-  setVoiceStatus(key, 'Listening...');
+  if (btn) { btn.classList.add('recording'); btn.querySelector('.mic-label').textContent = t('tap_to_stop'); }
+  setVoiceStatus(key, t('listening'));
 
   recognition.onresult = (event) => {
     let interim = '';
@@ -1135,7 +1261,7 @@ window.toggleVoice = function(key) {
 
   recognition.onerror = (event) => {
     if (event.error === 'no-speech') {
-      setVoiceStatus(key, 'No speech detected. Try again.');
+      setVoiceStatus(key, t('no_speech'));
     } else if (event.error !== 'aborted') {
       setVoiceStatus(key, 'Error: ' + event.error);
     }
@@ -1151,13 +1277,13 @@ window.toggleVoice = function(key) {
 
 function stopRecording(key) {
   const btn = document.querySelector(`.mic-btn[data-key="${key}"]`);
-  if (btn) { btn.classList.remove('recording'); btn.querySelector('.mic-label').textContent = 'Tap to speak'; }
+  if (btn) { btn.classList.remove('recording'); btn.querySelector('.mic-label').textContent = t('tap_to_speak'); }
   if (activeKey === key) {
     activeRecognition = null;
     activeKey = null;
   }
   const status = document.getElementById(`voice-status-${key}`);
-  if (status && status.textContent === 'Listening...') status.textContent = '';
+  if (status && (status.textContent === 'Listening...' || status.textContent === 'Hoert zu...')) status.textContent = '';
 }
 
 function setVoiceStatus(key, msg) {
@@ -1223,7 +1349,7 @@ window.showTrends = function() {
 
 function renderTrends() {
   let html = `<div class="trends">
-    <h1>Trends</h1>
+    <h1>${t('trends_title')}</h1>
     <div class="trends-range">
       <button class="range-btn ${trendsRange===7?'active':''}" onclick="setRange(7)">7 days</button>
       <button class="range-btn ${trendsRange===30?'active':''}" onclick="setRange(30)">30 days</button>
@@ -1239,12 +1365,12 @@ function renderTrends() {
       <div class="skeleton skeleton-card"></div>
       <div class="skeleton skeleton-card"></div>`;
   } else if (trendsData.length === 0) {
-    html += `<div style="text-align:center;color:var(--text-dim);padding:40px 0;">No entries found for this period.</div>`;
+    html += `<div style="text-align:center;color:var(--text-dim);padding:40px 0;">${t('no_entries')}</div>`;
   } else {
-    html += `<div class="chart-card"><h2>Sleep & Recovery</h2><canvas id="chart-sleep"></canvas></div>`;
-    html += `<div class="chart-card"><h2>Activity</h2><canvas id="chart-activity"></canvas></div>`;
-    html += `<div class="chart-card"><h2>Biometrics</h2><canvas id="chart-bio"></canvas></div>`;
-    html += `<div class="chart-card"><h2>Correlations</h2><div class="corr-grid" id="corr-cards"></div></div>`;
+    html += `<div class="chart-card"><h2>${t('sleep_recovery')}</h2><canvas id="chart-sleep"></canvas></div>`;
+    html += `<div class="chart-card"><h2>${t('activity')}</h2><canvas id="chart-activity"></canvas></div>`;
+    html += `<div class="chart-card"><h2>${t('biometrics')}</h2><canvas id="chart-bio"></canvas></div>`;
+    html += `<div class="chart-card"><h2>${t('correlations')}</h2><div class="corr-grid" id="corr-cards"></div></div>`;
   }
 
   html += `<button class="hi-back-btn" onclick="backToHome()">Back</button>`;
@@ -1375,7 +1501,7 @@ function buildCharts() {
         }
       }));
     } else {
-      c3.parentElement.innerHTML += '<p style="color:var(--text-dim);text-align:center;font-size:0.85rem;margin-top:-8px;">No biometric data yet. Import Apple Health data to see trends.</p>';
+      c3.parentElement.innerHTML += `<p style="color:var(--text-dim);text-align:center;font-size:0.85rem;margin-top:-8px;">${t('no_bio_data')}</p>`;
       c3.style.display = 'none';
     }
   }
@@ -1477,8 +1603,8 @@ window.showHealthImport = function() {
 function renderHealthImport() {
   const today = new Date().toISOString().split('T')[0];
   let html = `<div class="health-import">
-    <h1>Import Health Data</h1>
-    <p class="sub-text">Upload your Apple Health export (export.xml)</p>
+    <h1>${t('import_title')}</h1>
+    <p class="sub-text">${t('import_sub')}</p>
     <div class="hi-date-row">
       <span style="color:var(--text-dim);font-size:0.9rem;">Date:</span>
       <input type="date" class="hi-date-input" id="hi-date" value="${today}">
@@ -1488,7 +1614,7 @@ function renderHealthImport() {
     html += `
     <div class="hi-upload-area" id="hi-upload">
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm5-6v4h2v-4h3l-4-4-4 4h3z"/></svg>
-      <p>Tap to select export.xml</p>
+      <p>${t('tap_to_select')}</p>
       <input type="file" accept=".xml" onchange="handleHealthFile(event)">
     </div>
     <div class="hi-progress" id="hi-progress" style="display:none;">
@@ -1497,7 +1623,7 @@ function renderHealthImport() {
     </div>`;
   } else {
     html += renderHealthMetrics();
-    html += `<button class="hi-save-btn" onclick="saveHealthToNotion()">Save to Notion</button>`;
+    html += `<button class="hi-save-btn" onclick="saveHealthToNotion()">${t('save_to_notion')}</button>`;
   }
 
   html += `<button class="hi-back-btn" onclick="backToHome()">Back</button>`;
@@ -1762,11 +1888,11 @@ window.syncCalendar = async function() {
   if (!btn) return;
   btn.classList.remove('error','synced');
   btn.classList.add('syncing');
-  btn.querySelector('.cal-label').textContent = 'Syncing...';
+  btn.querySelector('.cal-label').textContent = t('syncing');
 
   try {
     const calId = prompt('Enter your Gmail address (Calendar ID):');
-    if (!calId) { btn.classList.remove('syncing'); btn.querySelector('.cal-label').textContent = 'Sync Calendar'; return; }
+    if (!calId) { btn.classList.remove('syncing'); btn.querySelector('.cal-label').textContent = t('sync_calendar'); return; }
 
     // Store for future syncs
     try { localStorage.setItem('health-cal-id', calId); } catch(e) {}
@@ -1809,14 +1935,14 @@ window.syncCalendar = async function() {
     state.calSynced = true;
     btn.classList.remove('syncing');
     btn.classList.add('synced');
-    btn.querySelector('.cal-label').textContent = `Synced (${data.events.length} events)`;
+    btn.querySelector('.cal-label').textContent = `${t('synced')} (${data.events.length})`;
 
     // Re-render current step to show updated values
     render();
   } catch(err) {
     btn.classList.remove('syncing');
     btn.classList.add('error');
-    btn.querySelector('.cal-label').textContent = 'Sync failed — retry';
+    btn.querySelector('.cal-label').textContent = t('sync_failed');
     console.error('Calendar sync error:', err);
   }
 };
@@ -1826,9 +1952,9 @@ function renderCalSyncBar() {
   return `<div class="cal-sync-bar">
     <button class="cal-sync-btn ${state.calSynced?'synced':''}" id="cal-sync-btn" onclick="${savedId ? 'quickSyncCalendar()' : 'syncCalendar()'}">
       <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
-      <span class="cal-label">${state.calSynced ? 'Synced' : 'Sync Calendar'}</span>
+      <span class="cal-label">${state.calSynced ? t('synced') : t('sync_calendar')}</span>
     </button>
-    ${state.calSynced ? '<div class="cal-suggestion">Values pre-filled from calendar</div>' : ''}
+    ${state.calSynced ? `<div class="cal-suggestion">${t('cal_prefilled')}</div>` : ''}
   </div>`;
 }
 
@@ -1840,7 +1966,7 @@ window.quickSyncCalendar = async function() {
   if (!btn) return;
   btn.classList.remove('error','synced');
   btn.classList.add('syncing');
-  btn.querySelector('.cal-label').textContent = 'Syncing...';
+  btn.querySelector('.cal-label').textContent = t('syncing');
 
   try {
     const res = await fetch(`/api/calendar?calendarId=${encodeURIComponent(calId)}`);
@@ -1875,15 +2001,32 @@ window.quickSyncCalendar = async function() {
     state.calSynced = true;
     btn.classList.remove('syncing');
     btn.classList.add('synced');
-    btn.querySelector('.cal-label').textContent = `Synced (${data.events.length} events)`;
+    btn.querySelector('.cal-label').textContent = `${t('synced')} (${data.events.length})`;
     render();
   } catch(err) {
     btn.classList.remove('syncing');
     btn.classList.add('error');
-    btn.querySelector('.cal-label').textContent = 'Sync failed — retry';
+    btn.querySelector('.cal-label').textContent = t('sync_failed');
     console.error('Calendar sync error:', err);
   }
 };
+
+// ============================================================
+//  LANGUAGE TOGGLE
+// ============================================================
+window.toggleLang = function() {
+  currentLang = currentLang === 'en' ? 'de' : 'en';
+  try { localStorage.setItem('health-lang', currentLang); } catch(e) {}
+  updateLangToggleUI();
+  render();
+};
+
+function updateLangToggleUI() {
+  const de = document.getElementById('lang-de');
+  const en = document.getElementById('lang-en');
+  if (de) de.classList.toggle('active', currentLang === 'de');
+  if (en) en.classList.toggle('active', currentLang === 'en');
+}
 
 // ---- PWA Service Worker ----
 if ('serviceWorker' in navigator) {
@@ -1891,6 +2034,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ---- Init ----
+updateLangToggleUI();
 if (loadDraft()) {
   render(); // Resume where you left off
 } else if (!autoDetectMode()) {
