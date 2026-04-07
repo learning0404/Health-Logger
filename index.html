@@ -761,14 +761,14 @@ body.evening .bevel-section h2 { color: var(--accent); }
   .lang-toggle { top: 20px; }
   .lang-opt { padding: 5px 10px; font-size: 0.75rem; }
 
-  /* Screen area fills naturally */
+  /* Screen area fills naturally, centered */
   .screen-area {
     min-height: 500px; flex: unset;
     padding: 32px 0;
-    align-items: stretch;
+    align-items: center;
   }
-  .screen-area > * { text-align: center; }
-  .q-label { text-align: center; }
+  /* Make children stretch to full width while staying centered */
+  .screen-area > * { width: 100%; text-align: center; }
 
   /* Home screen: 4 buttons in one row */
   .mode-screen { gap: 32px; }
