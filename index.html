@@ -746,8 +746,8 @@ body.evening .bevel-section h2 { color: var(--accent); }
 
   /* Full-width container */
   #app {
-    max-width: 1200px;
-    padding: 0 60px 60px;
+    max-width: 100%;
+    padding: 0 80px 60px;
     height: auto; min-height: 100vh;
   }
 
@@ -776,11 +776,11 @@ body.evening .bevel-section h2 { color: var(--accent); }
     display: flex; flex-wrap: nowrap;
   }
   .mode-btn {
-    min-width: 0; padding: 32px 24px !important;
-    font-size: 1.2rem !important;
+    min-width: 0; padding: 40px 32px !important;
+    font-size: 1.3rem !important; flex: 1;
   }
-  .mode-btn .icon { font-size: 2.5rem !important; }
-  .mode-btn .sub { font-size: 0.9rem !important; }
+  .mode-btn .icon { font-size: 3rem !important; }
+  .mode-btn .sub { font-size: 1rem !important; }
   .mode-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 24px rgba(255,179,71,0.2);
@@ -791,12 +791,13 @@ body.evening .bevel-section h2 { color: var(--accent); }
   .slider-wrap, .num-input, .chips, .select-options,
   .voice-wrap, .combined, .sport-list, .suppl-screen,
   .typed-num-wrap {
-    max-width: 700px; margin-left: auto; margin-right: auto;
+    max-width: 900px; width: 100%;
+    margin-left: auto; margin-right: auto;
   }
 
   /* Slider much bigger */
   .slider-value { font-size: 6rem; }
-  input[type=range] { height: 10px; max-width: 700px; }
+  input[type=range] { height: 10px; max-width: 900px; }
   input[type=range]::-webkit-slider-thumb { width: 42px; height: 42px; }
 
   /* Number inputs bigger */
@@ -808,17 +809,17 @@ body.evening .bevel-section h2 { color: var(--accent); }
   .typed-num { width: 160px; font-size: 3rem; padding: 16px; }
 
   /* Select options wider */
-  .select-options { max-width: 700px; }
+  .select-options { max-width: 900px; }
   .select-opt { padding: 20px 24px; font-size: 1.1rem; }
 
   /* Sport chips wider */
-  .sport-list { max-width: 700px; }
+  .sport-list { max-width: 900px; }
   .sport-chip { padding: 18px 20px; font-size: 1.05rem; }
   .sport-dur { width: 90px; font-size: 1.3rem; }
 
   /* Nav bar */
   .nav {
-    max-width: 700px; margin: 0 auto;
+    max-width: 900px; margin: 0 auto;
     padding: 24px 0 40px;
   }
   .nav button { padding: 20px; font-size: 1.1rem; border-radius: 20px; }
@@ -829,7 +830,7 @@ body.evening .bevel-section h2 { color: var(--accent); }
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
-    max-width: 900px; margin: 0 auto;
+    width: 100%;
   }
   .summary-card { padding: 20px; }
   .summary-card .val { font-size: 1.4rem; }
@@ -839,13 +840,13 @@ body.evening .bevel-section h2 { color: var(--accent); }
   }
 
   /* Supplements: wide grid */
-  .suppl-screen { max-width: 800px; margin: 0 auto; }
-  .suppl-grid { max-width: 800px; }
+  .suppl-screen { max-width: 100%; }
+  .suppl-grid { max-width: 100%; }
   .suppl-chip { padding: 14px 24px; font-size: 1rem; }
-  .suppl-top { max-width: 800px; }
+  .suppl-top { max-width: 100%; }
 
   /* Trends: 2x2 chart grid */
-  .trends { max-width: 1100px; margin: 0 auto; }
+  .trends { max-width: 100%; }
   .trends h1 { font-size: 2rem; }
   .trends-charts-grid {
     display: grid;
@@ -860,14 +861,14 @@ body.evening .bevel-section h2 { color: var(--accent); }
   .corr-val { font-size: 2rem; }
   .range-btn { padding: 10px 20px; font-size: 0.9rem; }
 
-  /* Settings: centered wider */
-  .settings { max-width: 650px; margin: 0 auto; }
+  /* Settings: wider */
+  .settings { max-width: 900px; margin: 0 auto; }
   .settings h1 { font-size: 2rem; }
   .setting-card { padding: 24px; }
   .setting-label { font-size: 1.05rem; }
 
-  /* Health import: centered wider */
-  .health-import { max-width: 750px; margin: 0 auto; }
+  /* Health import: wider */
+  .health-import { max-width: 900px; margin: 0 auto; }
   .health-import h1 { font-size: 2rem; }
   .hi-metrics { grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
   .hi-metric { padding: 20px; }
