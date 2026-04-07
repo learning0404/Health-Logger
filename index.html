@@ -892,19 +892,6 @@ body.evening .bevel-section h2 { color: var(--accent); }
   .progress .dot { width: 10px; height: 10px; }
   .progress { gap: 10px; }
 
-  /* Keyboard shortcut hints */
-  .kbd-hint {
-    display: inline-block;
-    padding: 2px 8px; margin-left: 8px;
-    border-radius: 4px; font-size: 0.7rem;
-    background: var(--card-border); color: var(--text-dim);
-    font-family: monospace; vertical-align: middle;
-  }
-}
-
-/* Hide keyboard hints on mobile */
-@media (max-width: 767px) {
-  .kbd-hint { display: none; }
 }
 </style>
 </head>
@@ -1214,11 +1201,11 @@ function renderNav(total, current, isSummary) {
   const isFirst = current === 0;
   const isLast = current === total - 1;
   let html = '';
-  html += `<button class="btn-back" onclick="goBack()">${t('back')}<span class="kbd-hint">Bksp</span></button>`;
+  html += `<button class="btn-back" onclick="goBack()">${t('back')}</button>`;
   if (isSummary) {
-    html += `<button class="btn-save" onclick="saveEntry()">${t('save')}<span class="kbd-hint">Enter</span></button>`;
+    html += `<button class="btn-save" onclick="saveEntry()">${t('save')}</button>`;
   } else {
-    html += `<button class="btn-next" onclick="goNext()">${t('next')}<span class="kbd-hint">Enter</span></button>`;
+    html += `<button class="btn-next" onclick="goNext()">${t('next')}</button>`;
   }
   $nav.innerHTML = html;
 }
